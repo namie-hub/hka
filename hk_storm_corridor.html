@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hong Kong Weather Atlas — Storm corridor</title>
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="hk_stations.js"></script>
+<script src="hk_geo.js"></script>
+<script src="hk_pressure.js"></script>
+<style>
+.isoLabel{background:#fff;border:1px solid #24425F;border-radius:5px;
+  padding:1px 6px;font-size:12px;font-weight:700;color:#24425F;
+  white-space:nowrap;box-shadow:0 1px 3px rgba(20,35,55,.25)}
+.lhBadge{display:flex;flex-direction:column;align-items:center;line-height:1}
+.lhBadge span{width:26px;height:26px;border-radius:50%;color:#fff;font-weight:700;
+  font-size:13px;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 1px 4px rgba(0,0,0,.4);border:2px solid #fff}
+.lhBadge em{font-style:normal;font-weight:700;font-size:12px;color:#182E38;
+  margin-top:1px;text-shadow:0 1px 2px #fff,0 -1px 2px #fff,1px 0 2px #fff,-1px 0 2px #fff}
+.lhBadge.low span{background:#C0392B}
+.lhBadge.high span{background:#24425F}
+.lhBadge.forming span{background:#fff;color:#C0392B;border:2px dashed #C0392B;opacity:.92}
+.lhBadge.forming em{color:#C0392B}
+</style>
+<style>
+:root{
+  --sea:#ECF1F2; --panel:#FFFFFF; --ink:#182E38; --muted:#5E7681;
+  --line:#D4DFE2; --teal:#0F7B8A; --teal-soft:#E1EFF1;
+  --amber:#C77E1F; --amber-soft:#F6ECDC;
+  --ok:#2E8B57; --stale:#C77E1F; --down:#B03A2E;
+  --radius:10px; --shadow:0 1px 3px rgba(24,46,56,.12);
+  font-size:15px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--sea);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;}
+header{display:flex;align-items:center;gap:.8rem;padding:.55rem .9rem;background:var(--panel);
+  border-bottom:1px solid var(--line);z-index:1200;position:relative;flex-wrap:wrap}
+header h1{font-size:1.02rem;margin:0;font-weight:650}
+header h1 span{color:var(--teal)}
+.pageSwitch{margin-left:auto;display:flex;gap:.4rem;align-items:center}
+.pageSwitch a,.pageSwitch button{font:inherit;font-size:.82rem;text-decoration:none;color:var(--ink);
+  background:var(--sea);border:1px solid var(--line);border-radius:999px;padding:.28rem .75rem;cursor:pointer}
+.pageSwitch a.current{background:var(--teal);color:#fff;border-color:var(--teal)}
+#clock{font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
+
+#warnRibbon{display:flex;gap:.45rem;align-items:center;padding:.4rem .9rem;background:var(--panel);
+  border-bottom:1px solid var(--line);overflow-x:auto;min-height:2.3rem}
+#warnRibbon .none{font-size:.82rem;color:var(--muted)}
+.warnChip{display:inline-flex;align-items:center;gap:.35rem;font-size:.8rem;font-weight:600;color:#fff;
+  border-radius:6px;padding:.22rem .6rem;white-space:nowrap;border:none;font-family:inherit}
+.provTag{font-size:.62rem;font-weight:700;letter-spacing:.09em;padding:.1rem .4rem;border-radius:4px;text-transform:uppercase}
+.prov-obs{background:var(--teal-soft);color:var(--teal)}
+.prov-official{background:#E3E9F5;color:#2C4A7C}
+.prov-model{background:var(--amber-soft);color:var(--amber)}
+.prov-third{background:#E9E9E9;color:#666}
+
+main{display:flex;height:calc(100vh - 96px);height:calc(100dvh - 96px);min-height:420px}
+#mapWrap{flex:1;position:relative;min-width:0}
+#map{position:absolute;inset:0;background:#C9D8DC}
+#layersBox{position:absolute;top:.7rem;left:.7rem;z-index:1100;background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--radius);box-shadow:var(--shadow);padding:.5rem .7rem;font-size:.82rem}
+#layersBox label{display:flex;gap:.4rem;align-items:center;margin:.15rem 0;cursor:pointer}
+#legend{position:absolute;bottom:1.6rem;left:.7rem;z-index:1000;background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--radius);box-shadow:var(--shadow);padding:.55rem .7rem;font-size:.76rem;max-width:280px}
+#legend h4{margin:0 0 .3rem;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+  display:flex;justify-content:space-between;align-items:center;gap:.6rem}
+#legend .row{display:flex;align-items:center;gap:.4rem;margin:.14rem 0}
+#legend .sw{width:16px;height:4px;flex:none}
+#legend .sw.dot{width:12px;height:12px;border-radius:50%}
+#legend .note{color:var(--muted);margin-top:.3rem;line-height:1.35}
+#legendToggle{background:none;border:none;cursor:pointer;color:var(--muted);padding:0;font-size:.8rem}
+#satTime{position:absolute;top:.7rem;right:.7rem;z-index:1000;background:var(--panel);border:1px solid var(--line);
+  border-radius:8px;box-shadow:var(--shadow);padding:.3rem .6rem;font-size:.74rem;display:none}
+
+#panel{width:392px;max-width:48vw;background:var(--panel);border-left:1px solid var(--line);overflow-y:auto;padding:.8rem .85rem;flex:none}
+.card{border:1px solid var(--line);border-radius:var(--radius);padding:.65rem .75rem;margin-bottom:.7rem}
+.card h3{margin:0 0 .45rem;font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+  display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+.mutedTxt{color:var(--muted);font-size:.8rem;line-height:1.5}
+.sysCard{display:flex;gap:.6rem;border:1px solid var(--line);border-radius:8px;padding:.5rem .6rem;margin:.45rem 0;cursor:pointer}
+.sysCard:hover{border-color:var(--teal)}
+.sysIcon{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.15rem;color:#fff;flex:none}
+.sysCard h4{margin:0 0 .15rem;font-size:.9rem}
+.sysCard p{margin:0;font-size:.78rem;color:var(--muted);line-height:1.4}
+.brief li{font-size:.84rem;margin:.25rem 0;line-height:1.45}
+.brief ul{padding-left:1.1rem;margin:.3rem 0}
+
+#sources{display:flex;gap:.4rem;align-items:center;padding:.35rem .9rem;background:var(--panel);border-top:1px solid var(--line);overflow-x:auto;font-size:.74rem;min-height:2.1rem}
+.srcChip{display:inline-flex;gap:.35rem;align-items:center;border:1px solid var(--line);border-radius:999px;padding:.14rem .55rem;white-space:nowrap}
+.srcDot{width:8px;height:8px;border-radius:50%;flex:none}
+.live .srcDot{background:var(--ok)} .stale .srcDot{background:var(--stale)} .down .srcDot{background:var(--down)}
+footer{padding:.45rem .9rem .8rem;background:var(--panel);font-size:.7rem;color:var(--muted);line-height:1.5}
+
+@media (max-width:760px){
+  main{flex-direction:column;height:auto}
+  #mapWrap{height:58vh;min-height:340px}
+  #panel{width:100%;max-width:none;border-left:none;border-top:1px solid var(--line)}
+  #legend{max-width:210px}
+}
+.leaflet-container{font:inherit}
+.seaLabel{background:none;border:none;box-shadow:none;color:#5E7681;font-style:italic;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
+.tcTag{background:#fff;border:1px solid var(--line);border-radius:6px;box-shadow:var(--shadow);font-size:.72rem;font-weight:700;padding:.05rem .3rem;white-space:nowrap}
+</style>
+</head>
+<body>
+<header>
+  <h1>Storm corridor <span>Philippine Sea → South China Sea → Hong Kong</span></h1>
+  <span id="clock"></span>
+  <nav class="pageSwitch">
+    <a href="index.html">Weather</a>
+    <a class="current" href="hk_storm_corridor.html">Storm corridor</a>
+    <button id="refreshBtn" title="Refresh all sources">↻ Refresh</button>
+  </nav>
+</header>
+
+<div id="warnRibbon"><span class="none">Checking official HKO warnings…</span></div>
+
+<main>
+  <div id="mapWrap">
+    <div id="map"></div>
+    <div id="layersBox">
+      <label><input type="checkbox" id="lyTracks" checked> JMA cyclone tracks</label>
+      <label><input type="checkbox" id="lySat"> Himawari infrared</label>
+      <label><input type="checkbox" id="lyRadar"> Regional radar</label>
+      <label><input type="checkbox" id="lyIso"> Isobars — model <span class="provTag prov-model" style="margin-left:.2rem">Experimental</span></label>
+      <label><input type="checkbox" id="lyGeo" checked> PAR + distance rings</label>
+    </div>
+    <div id="satTime"></div>
+    <div id="legend">
+      <h4><span>Legend</span><button id="legendToggle">−</button></h4>
+      <div id="legendBody">
+        <div class="row"><span class="sw" style="background:#4A5A63"></span>observed track (JMA analysis)</div>
+        <div class="row"><span class="sw" style="background:#B03A2E"></span>forecast track (JMA RSMC)</div>
+        <div class="row"><span class="sw dot" style="background:none;border:2px dashed #B03A2E"></span>70% probability circle</div>
+        <div class="row"><span class="sw dot" style="background:none;border:2px solid #C77E1F"></span>gale-force wind area (analysis)</div>
+        <div class="row"><span class="sw" style="background:none;border-top:2px dashed #5E7681"></span>PAR boundary · HK distance rings</div>
+        <div class="row"><span class="sw" style="background:#24425F;height:2px"></span>isobars, 4 hPa (model, when on)</div>
+        <div class="row"><span class="sw dot" style="background:none;border:2px dashed #C0392B"></span>"L?" forming low — experimental, over water</div>
+        <div class="note">Distance rings are guides only — HKO signals depend on wind over Hong Kong, not distance. The centre may track anywhere inside a probability circle; the circle is not the storm's size.</div>
+      </div>
+    </div>
+  </div>
+
+  <aside id="panel">
+    <div class="card" id="briefCard">
+      <h3>What changed since you last looked <span class="provTag prov-third">This device only</span></h3>
+      <div class="mutedTxt">Comparing against your previous visit…</div>
+    </div>
+    <div class="card" id="swtCard">
+      <h3>HKO special weather tips <span class="provTag prov-official">Official · HKO</span></h3>
+      <div class="mutedTxt">Loading…</div>
+    </div>
+    <div class="card" id="systemsCard">
+      <h3>Active systems <span class="provTag prov-official">Official · JMA RSMC Tokyo</span></h3>
+      <div class="mutedTxt">Loading JMA tropical-cyclone list…</div>
+    </div>
+    <div class="card">
+      <h3>Philippines view <span class="provTag prov-official">PAGASA</span></h3>
+      <div class="mutedTxt">The dashed boundary on the map is PAGASA's Area of Responsibility.
+      PAGASA publishes no machine-readable feed, so live bulletin status is not shown here yet
+      (roadmap: GitHub Actions ingest). For systems inside the PAR, check
+      <a href="https://www.pagasa.dost.gov.ph/" rel="noopener">pagasa.dost.gov.ph</a> directly.</div>
+    </div>
+    <div class="card">
+      <h3>Reading this page <span class="provTag prov-obs">How it works</span></h3>
+      <div class="mutedTxt">JMA tracks tropical depressions before they are named, so systems can appear
+      here days before a Hong Kong signal is possible. Himawari infrared shows cloud tops over the open
+      ocean — organised deep convection east of the Philippines is the earliest visible hint, and it is an
+      observation, not a forecast. HKO remains the only warning authority for Hong Kong.</div>
+    </div>
+  </aside>
+</main>
+
+<div id="sources"></div>
+<footer>
+  <b>Privacy:</b> this page contacts only data endpoints — www.jma.go.jp (JMA typhoon + Himawari),
+  data.weather.gov.hk (HKO warnings), api.open-meteo.com (model isobars), api.rainviewer.com &amp;
+  tilecache.rainviewer.com, tile.openstreetmap.org. Leaflet is bundled locally — no CDN.
+  No analytics, no cookies, no tracking.
+  "What changed" is computed locally in your browser and never leaves this device.
+</footer>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const HKT=v=>{try{return new Date(v).toLocaleString("en-GB",{timeZone:"Asia/Hong_Kong",hour12:false,day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});}catch{return "—";}};
+const km=(a,b)=>{const R=6371,r=x=>x*Math.PI/180,dLa=r(b[0]-a[0]),dLo=r(b[1]-a[1]);
+  const h=Math.sin(dLa/2)**2+Math.cos(r(a[0]))*Math.cos(r(b[0]))*Math.sin(dLo/2)**2;
+  return Math.round(2*R*Math.asin(Math.sqrt(h)));};
+
+const SOURCES={
+  jma:{label:"JMA typhoon",ttl:7*3600e3},
+  iso:{label:"Model pressure",ttl:2*3600e3},
+  warn:{label:"HKO warnings",ttl:15*60e3},
+  swt:{label:"HKO special tips",ttl:7*3600e3},
+  sat:{label:"Himawari",ttl:40*60e3},
+  radar:{label:"RainViewer radar",ttl:30*60e3}
+};
+const srcState={};
+function setSrc(id,status,publishedAt,detail){
+  srcState[id]={status,fetchedAt:Date.now(),publishedAt:publishedAt||null,detail:detail||""};
+  $("#sources").innerHTML=Object.entries(SOURCES).map(([k,cfg])=>{
+    const s=srcState[k];
+    if(!s) return `<span class="srcChip"><span class="srcDot" style="background:#bbb"></span>${cfg.label}: pending</span>`;
+    let st=s.status;
+    if(st==="live"&&s.publishedAt&&(Date.now()-new Date(s.publishedAt).getTime()>cfg.ttl)) st="stale";
+    const tip=`fetched ${HKT(s.fetchedAt)} HKT · ${s.publishedAt?"published "+HKT(s.publishedAt):"publication time n/a"}${s.detail?" · "+s.detail:""}`;
+    return `<span class="srcChip ${st}" title="${esc(tip)}"><span class="srcDot"></span>${cfg.label}${st==="stale"?" (stale)":st==="down"?" (unavailable)":""}</span>`;
+  }).join("");
+}
+async function getJson(url){const r=await fetch(url,{cache:"no-store"});if(!r.ok)throw new Error("HTTP "+r.status);return r.json();}
+
+/* ================= map & static geography ================= */
+const map=L.map("map").fitBounds(CORRIDOR_BOUNDS);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:12,
+  attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(map);
+const gTracks=L.layerGroup().addTo(map), gGeo=L.layerGroup().addTo(map),
+      gSat=L.layerGroup(), gRadar=L.layerGroup(), gIso=L.layerGroup();
+const isoCanvas=L.canvas({padding:0.3});
+let isoField=null, isoLoading=false;
+
+/* Model isobars — the port of the Japan Atlas pressure engine.
+ * "L?" dashed badges mark weak over-water lows: organising disturbances
+ * visible before any agency numbers them. Experimental by definition. */
+async function loadIsobars(){
+  if(isoLoading) return;
+  isoLoading=true;
+  try{
+    isoField=await HK_PRESSURE.fetchModelPressure();
+    setSrc("iso","live",new Date().toISOString(),"current-hour model MSLP, 2° grid");
+    gIso.clearLayers();
+    HK_PRESSURE.drawIsobars(gIso,isoField,{canvas:isoCanvas,formingLows:true});
+  }catch(e){
+    setSrc("iso","down",null,String(e));
+  }finally{ isoLoading=false; }
+}
+
+function drawGeo(){
+  gGeo.clearLayers();
+  L.polyline(PAR_BOUNDARY,{color:"#5E7681",weight:1.6,dashArray:"6,5",opacity:.8})
+    .bindTooltip("PAGASA Area of Responsibility (PAR)",{sticky:true}).addTo(gGeo);
+  HK_DISTANCE_RINGS_KM.forEach(r=>{
+    L.circle([HK_REFERENCE.lat,HK_REFERENCE.lon],{radius:r*1000,color:"#5E7681",weight:1,
+      dashArray:"2,5",fill:false,opacity:.7})
+      .bindTooltip(`${r} km from Hong Kong — distance guide only, not a warning threshold`,{sticky:true}).addTo(gGeo);
+  });
+  L.circleMarker([HK_REFERENCE.lat,HK_REFERENCE.lon],{radius:5,color:"#fff",weight:1.5,fillColor:"#0F7B8A",fillOpacity:1})
+    .bindTooltip("Hong Kong").addTo(gGeo);
+  CORRIDOR_LABELS.forEach(l=>L.marker([l.lat,l.lon],{interactive:false,
+    icon:L.divIcon({className:"seaLabel",html:l.name,iconSize:null})}).addTo(gGeo));
+}
+drawGeo();
+
+/* ================= JMA cyclones ================= */
+const CAT_STYLE={TD:{c:"#6C8693",s:"TD",lbl:"Tropical depression"},TS:{c:"#C77E1F",s:"TS",lbl:"Tropical storm"},
+  STS:{c:"#D35400",s:"STS",lbl:"Severe tropical storm"},TY:{c:"#B03A2E",s:"TY",lbl:"Typhoon"}};
+const catOf=x=>CAT_STYLE[(x||"").toUpperCase()]||{c:"#6C8693",s:esc(x||"?"),lbl:esc(x||"Unclassified")};
+let systems=[];
+
+async function loadCyclones(){
+  gTracks.clearLayers(); systems=[];
+  try{
+    const list=await getJson("https://www.jma.go.jp/bosai/typhoon/data/targetTc.json");
+    const newest=list.map(t=>t.issue).sort().pop()||null;
+    setSrc("jma","live",newest,list.length?list.length+" active system(s)":"no active systems — a real answer, not a failure");
+    for(const tc of list){
+      try{
+        const [fc,spec]=await Promise.all([
+          getJson(`https://www.jma.go.jp/bosai/typhoon/data/${tc.tropicalCyclone}/forecast.json`),
+          getJson(`https://www.jma.go.jp/bosai/typhoon/data/${tc.tropicalCyclone}/specifications.json`)
+        ]);
+        systems.push(buildSystem(tc,fc,spec));
+      }catch(e){
+        systems.push({id:tc.tropicalCyclone,error:String(e),issue:tc.issue,category:tc.category});
+      }
+    }
+    systems.filter(s=>!s.error).forEach(drawSystem);
+    renderSystems();
+    briefing();
+  }catch(e){
+    setSrc("jma","down",null,String(e));
+    $("#systemsCard").innerHTML=`<h3>Active systems <span class="provTag prov-official">Official · JMA RSMC Tokyo</span></h3>
+      <div class="mutedTxt">The JMA typhoon feed could not be reached — this is a feed failure, <b>not</b> an all-clear.
+      Check JMA or HKO directly before assuming the corridor is quiet.</div>`;
+  }
+}
+
+function buildSystem(tc,fc,spec){
+  const title=fc.find(p=>p.part==="title")||{};
+  const sTitle=spec.find(p=>p.part==="title")||{};
+  const specByH={}; spec.forEach(p=>{if(p.advancedHours!=null)specByH[p.advancedHours]=p;});
+  const analysis=fc.find(p=>p.advancedHours===0)||{};
+  const forecasts=fc.filter(p=>Number(p.advancedHours)>0);
+  return {
+    id:tc.tropicalCyclone, number:title.typhoonNumber,
+    name:(sTitle.name&&sTitle.name.en)||(title.name&&title.name.en)||"(unnamed)",
+    category:(sTitle.category&&sTitle.category.en)||tc.category,
+    issue:(title.issue&&title.issue.UTC)||tc.issue,
+    analysis, forecasts, specByH,
+    center:analysis.center||null,
+    track:analysis.track||{},
+    gale:analysis.galeWarningArea||null
+  };
+}
+
+function drawSystem(sys){
+  const st=catOf(sys.category);
+  const obs=[...(sys.track.preTyphoon||[]),...(sys.track.typhoon||[])];
+  if(obs.length>1) L.polyline(obs,{color:"#4A5A63",weight:2,opacity:.85}).addTo(gTracks);
+  if(sys.gale&&sys.gale.center)
+    L.circle(sys.gale.center,{radius:sys.gale.radius,color:"#C77E1F",weight:1.5,fill:false,opacity:.8})
+      .bindTooltip("Gale-force wind area (30 kt+), JMA analysis",{sticky:true}).addTo(gTracks);
+  const fPts=sys.forecasts.filter(f=>f.center);
+  if(sys.center&&fPts.length)
+    L.polyline([sys.center,...fPts.map(f=>f.center)],{color:"#B03A2E",weight:2,dashArray:"6,5",opacity:.9}).addTo(gTracks);
+  fPts.forEach(f=>{
+    if(f.probabilityCircle&&f.probabilityCircle.radius)
+      L.circle(f.center,{radius:f.probabilityCircle.radius,color:"#B03A2E",weight:1,dashArray:"3,4",fill:true,fillOpacity:.04}).addTo(gTracks);
+    const sp=sys.specByH[f.advancedHours]||{};
+    L.circleMarker(f.center,{radius:4,color:"#B03A2E",weight:1.5,fillColor:"#fff",fillOpacity:1})
+      .bindPopup(popupFor(sys,f,sp,false)).addTo(gTracks);
+  });
+  if(sys.center){
+    const sp=sys.specByH[0]||{};
+    L.circleMarker(sys.center,{radius:9,color:"#fff",weight:2,fillColor:st.c,fillOpacity:.95})
+      .bindPopup(popupFor(sys,sys.analysis,sp,true)).addTo(gTracks);
+    L.marker(sys.center,{interactive:false,icon:L.divIcon({className:"tcTag",
+      html:`${st.s} ${esc(sys.name)}`,iconAnchor:[-10,-8]})}).addTo(gTracks);
+  }
+}
+function popupFor(sys,pt,sp,isAnalysis){
+  const d=pt.center?km([HK_REFERENCE.lat,HK_REFERENCE.lon],pt.center):null;
+  const when=isAnalysis?`Analysis ${HKT(pt.validtime&&pt.validtime.UTC)} HKT`
+    :`Forecast +${pt.advancedHours} h · valid ${HKT(pt.validtime&&pt.validtime.UTC)} HKT`;
+  const wind=sp.maximumWind&&sp.maximumWind.sustained?`${sp.maximumWind.sustained["m/s"]} m/s (${sp.maximumWind.sustained.kt} kt)`:null;
+  return `<b>${esc(sys.name)}</b> · ${esc((sp.category&&sp.category.en)||sys.category)}<br>${when}<br>
+    ${sp.pressure?`Central pressure ${esc(sp.pressure)} hPa<br>`:""}
+    ${wind?`Max sustained wind ${wind}<br>`:""}
+    ${sp.course?`Moving ${esc(sp.course)}${sp.speed&&sp.speed["km/h"]?` at ${esc(sp.speed["km/h"])} km/h`:""}<br>`:""}
+    ${d!=null?`<b>${d} km from Hong Kong</b>${isAnalysis?"":" (forecast centre)"}<br>`:""}
+    <small>JMA RSMC Tokyo · issued ${HKT(sys.issue)} HKT</small>`;
+}
+
+function renderSystems(){
+  const ok=systems.filter(s=>!s.error), bad=systems.filter(s=>s.error);
+  let html="";
+  if(!systems.length){
+    html=`<div class="mutedTxt">JMA reports <b>no active tropical system</b> in the western North Pacific or
+    South China Sea right now — the feed is live and this is a real answer. Systems (including unnamed
+    tropical depressions) will appear here as soon as JMA tracks them.</div>`;
+  }else{
+    html=ok.map(sys=>{
+      const st=catOf(sys.category);
+      const d=sys.center?km([HK_REFERENCE.lat,HK_REFERENCE.lon],sys.center):null;
+      const near=nearestApproach(sys);
+      return `<div class="sysCard" onclick="focusSystem('${sys.id}')">
+        <div class="sysIcon" style="background:${st.c}">🌀</div>
+        <div><h4>${esc(sys.name)} <small>(${st.lbl}${sys.number?", #"+esc(sys.number):""})</small></h4>
+        <p>${d!=null?`Now ${d} km from Hong Kong.`:""}
+        ${near?` Nearest forecast point: <b>${near.d} km</b> at +${near.h} h — the centre may pass anywhere in that point's probability circle.`:""}
+        <br><small>JMA issue ${HKT(sys.issue)} HKT</small></p></div></div>`;
+    }).join("");
+    if(bad.length) html+=`<div class="mutedTxt">Could not load detail for: ${bad.map(b=>esc(b.id)).join(", ")} (list entry shown by JMA, detail fetch failed).</div>`;
+  }
+  $("#systemsCard").innerHTML=`<h3>Active systems <span class="provTag prov-official">Official · JMA RSMC Tokyo</span></h3>${html}
+    <div class="mutedTxt" style="margin-top:.4rem">HKO's own TC forecast track is on the roadmap for side-by-side
+    comparison; after each storm, agency tracks will be scored against the final best track — the only truth is what verifies.</div>`;
+}
+function nearestApproach(sys){
+  let best=null;
+  sys.forecasts.filter(f=>f.center).forEach(f=>{
+    const d=km([HK_REFERENCE.lat,HK_REFERENCE.lon],f.center);
+    if(!best||d<best.d) best={d,h:f.advancedHours};
+  });
+  return best;
+}
+function focusSystem(id){
+  const s=systems.find(x=>x.id===id);
+  if(s&&s.center) map.flyTo(s.center,6);
+}
+window.focusSystem=focusSystem;
+
+/* ================= HKO warning ribbon ================= */
+const WARN_COLORS={WRAINA:"#F5A300",WRAINR:"#D63031",WRAINB:"#1B1B1B",TC1:"#7f8c8d",TC3:"#F1C40F",
+  TC8NE:"#E67E22",TC8SE:"#E67E22",TC8NW:"#E67E22",TC8SW:"#E67E22",TC9:"#D35400",TC10:"#B03A2E",
+  WTS:"#E5A03C",WMSGNL:"#16A085",WFNTSA:"#2980B9",WL:"#8E5B3A",WHOT:"#D63031",WCOLD:"#2C4A7C"};
+let warnCodes=[];
+async function loadWarnings(){
+  const rib=$("#warnRibbon");
+  try{
+    const sum=await getJson("https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warnsum&lang=en");
+    const list=Object.values(sum||{}).filter(w=>w&&w.name);
+    warnCodes=list.map(w=>w.code||w.type||w.name);
+    const newest=list.map(w=>w.updateTime||w.issueTime).sort().pop()||null;
+    setSrc("warn","live",newest,list.length?list.length+" in force":"none in force");
+    rib.innerHTML=list.length
+      ?list.map(w=>`<span class="warnChip" style="background:${WARN_COLORS[w.code]||"#5E7681"}">⚠ ${esc(w.name)}</span>`).join("")
+       +`<span class="none">HKO official — see the Weather page for full statements</span>`
+      :`<span class="none">No official HKO warning in force — confirmed live just now.</span>`;
+  }catch(e){
+    warnCodes=null;
+    setSrc("warn","down",null,String(e));
+    rib.innerHTML=`<span class="none" style="color:var(--down)">⚠ HKO warning feed unreachable — not an all-clear. Check HKO directly.</span>`;
+  }
+}
+
+/* ================= Himawari infrared ================= */
+let satLayer=null;
+async function loadSat(){
+  try{
+    const times=await getJson("https://www.jma.go.jp/bosai/himawari/data/satimg/targetTimes_fd.json");
+    const latest=times[times.length-1];
+    setSrc("sat","live",fmtBase(latest.basetime),"latest full-disk infrared frame");
+    if(satLayer) gSat.removeLayer(satLayer);
+    satLayer=L.tileLayer(
+      `https://www.jma.go.jp/bosai/himawari/data/satimg/${latest.basetime}/fd/${latest.validtime}/B13/TBB/{z}/{x}/{y}.jpg`,
+      {opacity:.65,maxNativeZoom:5,maxZoom:12,attribution:"Himawari · JMA"});
+    satLayer.addTo(gSat);
+    $("#satTime").textContent=`Himawari IR · ${HKT(fmtBase(latest.basetime))} HKT`;
+  }catch(e){
+    setSrc("sat","down",null,String(e));
+    $("#satTime").textContent="Himawari unavailable";
+  }
+}
+function fmtBase(b){ /* 20260713161000 -> ISO UTC */
+  return `${b.slice(0,4)}-${b.slice(4,6)}-${b.slice(6,8)}T${b.slice(8,10)}:${b.slice(10,12)}:${b.slice(12,14)}Z`;
+}
+
+/* ================= RainViewer regional radar ================= */
+let radarLayer=null;
+async function loadRadar(){
+  try{
+    const d=await getJson("https://api.rainviewer.com/public/weather-maps.json");
+    const past=(d.radar&&d.radar.past)||[];
+    if(!past.length) throw new Error("no frames");
+    const f=past[past.length-1];
+    setSrc("radar","live",new Date(f.time*1000).toISOString(),"latest observed composite frame");
+    if(radarLayer) gRadar.removeLayer(radarLayer);
+    radarLayer=L.tileLayer(`${d.host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`,{opacity:.7,attribution:"RainViewer",maxNativeZoom:7,maxZoom:12});
+    radarLayer.addTo(gRadar);
+  }catch(e){ setSrc("radar","down",null,String(e)); }
+}
+
+/* ================= "What changed since you last looked" =================
+ * Computed against a snapshot kept in this browser's localStorage.
+ * Scope is explicit: your previous visit, on this device — not HKO's or
+ * JMA's own update cycle. Nothing leaves the device. */
+function briefing(){
+  const el=$("#briefCard");
+  let store=null;
+  try{ store=window.localStorage; }catch(e){ store=null; }
+  const head=`<h3>What changed since you last looked <span class="provTag prov-third">This device only</span></h3>`;
+  if(!store){
+    el.innerHTML=head+`<div class="mutedTxt">Your browser blocks local storage for file:// pages, so visit-to-visit
+    comparison is off. Everything else works normally.</div>`;
+    return;
+  }
+  const now={
+    at:Date.now(),
+    warnings:warnCodes===null?undefined:warnCodes,
+    systems:systems.filter(s=>!s.error).map(s=>({id:s.id,name:s.name,cat:s.category,
+      center:s.center,issue:s.issue}))
+  };
+  let prev=null;
+  try{ prev=JSON.parse(store.getItem("hkAtlasSnapshot")||"null"); }catch(e){}
+  const lines=[];
+  if(prev){
+    const pIds=prev.systems.map(s=>s.id), nIds=now.systems.map(s=>s.id);
+    now.systems.filter(s=>!pIds.includes(s.id)).forEach(s=>lines.push(`<b>New system:</b> ${esc(s.name)} (${esc(s.cat)}) is now tracked by JMA.`));
+    prev.systems.filter(s=>!nIds.includes(s.id)).forEach(s=>lines.push(`<b>No longer tracked:</b> ${esc(s.name)} has left JMA's active list (dissipated, transitioned, or moved out of area).`));
+    now.systems.forEach(s=>{
+      const p=prev.systems.find(x=>x.id===s.id); if(!p) return;
+      if(p.cat!==s.cat) lines.push(`<b>${esc(s.name)}:</b> category ${esc(p.cat)} → ${esc(s.cat)}.`);
+      if(p.center&&s.center){
+        const moved=km(p.center,s.center);
+        const dNow=km([HK_REFERENCE.lat,HK_REFERENCE.lon],s.center);
+        const dPrev=km([HK_REFERENCE.lat,HK_REFERENCE.lon],p.center);
+        if(moved>=30) lines.push(`<b>${esc(s.name)}:</b> centre moved ~${moved} km; now ${dNow} km from HK (${dNow<dPrev?"closer by "+(dPrev-dNow):"farther by "+(dNow-dPrev)} km).`);
+      }
+    });
+    if(now.warnings!==undefined&&Array.isArray(prev.warnings)){
+      now.warnings.filter(w=>!prev.warnings.includes(w)).forEach(w=>lines.push(`<b>HKO warning issued:</b> ${esc(w)}.`));
+      prev.warnings.filter(w=>!now.warnings.includes(w)).forEach(w=>lines.push(`<b>HKO warning cancelled:</b> ${esc(w)}.`));
+    }
+    el.innerHTML=head+(lines.length
+      ?`<div class="brief"><ul>${lines.map(l=>`<li>${l}</li>`).join("")}</ul></div>
+        <div class="mutedTxt">Compared with your visit on ${HKT(prev.at)} HKT, on this device.</div>`
+      :`<div class="mutedTxt">Nothing material changed since your visit on ${HKT(prev.at)} HKT — same systems, same categories, no warning changes.</div>`);
+  }else{
+    el.innerHTML=head+`<div class="mutedTxt">First visit on this device — a snapshot has been saved, and the next
+    visit will show what changed. This comparison is computed locally and never leaves your browser.</div>`;
+  }
+  if(now.warnings!==undefined||now.systems.length||!prev){
+    try{ if(now.warnings===undefined&&prev) now.warnings=prev.warnings; store.setItem("hkAtlasSnapshot",JSON.stringify(now)); }catch(e){}
+  }
+}
+
+/* ================= HKO special weather tips =================
+ * Free-text official heads-up — this is where HKO first discusses
+ * pre-genesis lows and signal considerations, before any warning exists.
+ * On the corridor page it is the official counterpart to JMA's TD tracking. */
+async function loadSwt(){
+  const el=$("#swtCard");
+  const head=`<h3>HKO special weather tips <span class="provTag prov-official">Official · HKO</span></h3>`;
+  try{
+    const d=await getJson("https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=swt&lang=en");
+    const tips=(d&&d.swt)||[];
+    const newest=tips.map(t=>t.updateTime).sort().pop()||null;
+    setSrc("swt","live",newest,tips.length?tips.length+" tip(s) in force":"none in force");
+    el.innerHTML=head+(tips.length
+      ?tips.map(t=>`<div class="mutedTxt" style="white-space:pre-line;color:var(--ink);font-size:.84rem;border-left:3px solid var(--teal);padding-left:.55rem">${esc(t.desc)}</div>
+        <div class="mutedTxt">Issued ${HKT(t.updateTime)} HKT</div>`).join("")
+      :`<div class="mutedTxt">No special weather tips in force — confirmed live from HKO.</div>`);
+  }catch(e){
+    setSrc("swt","down",null,String(e));
+    el.innerHTML=head+`<div class="mutedTxt">HKO special-tips feed unreachable at last refresh — not the same as "no tips in force".</div>`;
+  }
+}
+
+/* ================= layer toggles & refresh ================= */
+$("#lyTracks").onchange=e=>e.target.checked?gTracks.addTo(map):map.removeLayer(gTracks);
+$("#lyIso").onchange=e=>{ if(e.target.checked){gIso.addTo(map);if(!isoField)loadIsobars();} else map.removeLayer(gIso); };
+$("#lyGeo").onchange=e=>e.target.checked?gGeo.addTo(map):map.removeLayer(gGeo);
+$("#lySat").onchange=e=>{ if(e.target.checked){gSat.addTo(map);$("#satTime").style.display="block";if(!satLayer)loadSat();} else {map.removeLayer(gSat);$("#satTime").style.display="none";} };
+$("#lyRadar").onchange=e=>{ if(e.target.checked){gRadar.addTo(map);if(!radarLayer)loadRadar();} else map.removeLayer(gRadar); };
+function setLegend(open){const b=$("#legendBody");b.style.display=open?"":"none";$("#legendToggle").textContent=open?"−":"+";}
+$("#legendToggle").onclick=()=>setLegend($("#legendBody").style.display==="none");
+/* On phones the full legend can cover the layer switches — start collapsed. */
+if(window.matchMedia("(max-width:760px)").matches) setLegend(false);
+
+async function refreshAll(){
+  await Promise.allSettled([loadWarnings(),loadSwt(),loadCyclones()]);
+  if(satLayer) loadSat();
+  if(radarLayer) loadRadar();
+  if(map.hasLayer(gIso)) loadIsobars();
+}
+$("#refreshBtn").onclick=refreshAll;
+setInterval(refreshAll,5*60e3);
+setInterval(()=>{$("#clock").textContent=new Date().toLocaleString("en-GB",{timeZone:"Asia/Hong_Kong",hour12:false,weekday:"short",hour:"2-digit",minute:"2-digit",second:"2-digit"})+" HKT";},1000);
+refreshAll();
+</script>
+</body>
+</html>

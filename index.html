@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hong Kong Weather Atlas</title>
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="hk_stations.js"></script>
+<script src="hk_aqhi.js"></script>
+<style>
+/* ---- South China Sea chart tokens ---- */
+:root{
+  --sea:#ECF1F2; --panel:#FFFFFF; --ink:#182E38; --muted:#5E7681;
+  --line:#D4DFE2; --teal:#0F7B8A; --teal-soft:#E1EFF1;
+  --amber:#C77E1F; --amber-soft:#F6ECDC;
+  --warn-amber:#F5A300; --warn-red:#D63031; --warn-black:#1B1B1B;
+  --ok:#2E8B57; --stale:#C77E1F; --down:#B03A2E;
+  --radius:10px; --shadow:0 1px 3px rgba(24,46,56,.12);
+  font-size:15px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--sea);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;}
+/* System fonts are a deliberate privacy choice: no font CDN is contacted. */
+
+header{display:flex;align-items:center;gap:.8rem;padding:.55rem .9rem;background:var(--panel);
+  border-bottom:1px solid var(--line);position:relative;z-index:1200;flex-wrap:wrap}
+header h1{font-size:1.02rem;margin:0;font-weight:650;letter-spacing:.01em}
+header h1 span{color:var(--teal)}
+.pageSwitch{margin-left:auto;display:flex;gap:.4rem;align-items:center}
+.pageSwitch a,.pageSwitch button{font:inherit;font-size:.82rem;text-decoration:none;color:var(--ink);
+  background:var(--sea);border:1px solid var(--line);border-radius:999px;padding:.28rem .75rem;cursor:pointer}
+.pageSwitch a.current{background:var(--teal);color:#fff;border-color:var(--teal)}
+#clock{font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* Warning ribbon */
+#warnRibbon{display:flex;gap:.45rem;align-items:center;padding:.4rem .9rem;background:var(--panel);
+  border-bottom:1px solid var(--line);overflow-x:auto;min-height:2.3rem}
+#warnRibbon .none{font-size:.82rem;color:var(--muted)}
+.warnChip{display:inline-flex;align-items:center;gap:.35rem;font-size:.8rem;font-weight:600;color:#fff;
+  border-radius:6px;padding:.22rem .6rem;white-space:nowrap;cursor:pointer;border:none;font-family:inherit}
+.provTag{font-size:.62rem;font-weight:700;letter-spacing:.09em;padding:.1rem .4rem;border-radius:4px;text-transform:uppercase}
+.prov-obs{background:var(--teal-soft);color:var(--teal)}
+.prov-official{background:#E3E9F5;color:#2C4A7C}
+.prov-model{background:var(--amber-soft);color:var(--amber)}
+.prov-third{background:#E9E9E9;color:#666}
+
+main{display:flex;height:calc(100vh - 96px);height:calc(100dvh - 96px);min-height:420px}
+#mapWrap{flex:1;position:relative;min-width:0}
+#map{position:absolute;inset:0;background:#DDE7E9}
+
+/* View toolbar over map */
+#views{position:absolute;top:.7rem;left:.7rem;z-index:1100;display:flex;gap:.35rem;flex-wrap:wrap}
+#views button{font:inherit;font-size:.85rem;font-weight:600;background:var(--panel);color:var(--ink);
+  border:1px solid var(--line);border-radius:8px;padding:.38rem .8rem;cursor:pointer;box-shadow:var(--shadow)}
+#views button.on{background:var(--teal);border-color:var(--teal);color:#fff}
+
+/* Legend */
+#legend{position:absolute;bottom:1.6rem;left:.7rem;z-index:1000;background:var(--panel);
+  border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
+  padding:.55rem .7rem;font-size:.76rem;max-width:270px}
+#legend h4{margin:0 0 .3rem;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+  display:flex;justify-content:space-between;gap:.6rem;align-items:center}
+#legend .row{display:flex;align-items:center;gap:.4rem;margin:.14rem 0}
+#legend .sw{width:14px;height:14px;border-radius:50%;flex:none;border:1px solid rgba(0,0,0,.15)}
+#legend .note{color:var(--muted);margin-top:.3rem;line-height:1.35}
+#legendToggle{background:none;border:none;cursor:pointer;font-size:.8rem;color:var(--muted);padding:0}
+
+/* Radar timeline */
+#radarBar{position:absolute;bottom:1.6rem;left:50%;transform:translateX(-50%);z-index:1000;background:var(--panel);
+  border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:.5rem .8rem;
+  display:none;align-items:center;gap:.6rem;max-width:min(92%,540px);width:520px}
+#radarBar.show{display:flex}
+#radarBar input[type=range]{flex:1}
+#radarBar .t{font-size:.78rem;font-variant-numeric:tabular-nums;min-width:8.5rem}
+#radarBar .t .nc{color:var(--amber);font-weight:700}
+#radarBar button{font:inherit;background:var(--sea);border:1px solid var(--line);border-radius:6px;cursor:pointer;padding:.15rem .5rem}
+
+/* Right panel */
+#panel{width:378px;max-width:46vw;background:var(--panel);border-left:1px solid var(--line);
+  overflow-y:auto;padding:.8rem .85rem;flex:none}
+.card{border:1px solid var(--line);border-radius:var(--radius);padding:.65rem .75rem;margin-bottom:.7rem}
+.card h3{margin:0 0 .45rem;font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+  display:flex;align-items:center;gap:.5rem;justify-content:space-between}
+.big{font-size:2rem;font-weight:650;line-height:1}
+.kv{display:flex;flex-wrap:wrap;gap:.3rem .9rem;font-size:.84rem;margin-top:.4rem}
+.kv b{font-weight:650}
+.mutedTxt{color:var(--muted);font-size:.8rem;line-height:1.45}
+.fcstText{font-size:.86rem;line-height:1.5;margin:.2rem 0}
+.dayRail{display:flex;gap:.45rem;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:.25rem}
+.tableWrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.dayCell{flex:none;width:86px;border:1px solid var(--line);border-radius:8px;padding:.4rem .45rem;font-size:.75rem;text-align:center}
+.dayCell .d{font-weight:650}
+.dayCell .tt{font-size:.86rem;margin:.15rem 0}
+.dayCell .psr{border-radius:4px;padding:.06rem .25rem;font-size:.68rem;display:inline-block}
+.psr-High,.psr-MediumHigh{background:#FBE3E1;color:var(--warn-red)}
+.psr-Medium{background:var(--amber-soft);color:var(--amber)}
+.psr-MediumLow,.psr-Low{background:var(--teal-soft);color:var(--teal)}
+table.models{width:100%;border-collapse:collapse;font-size:.76rem;font-variant-numeric:tabular-nums}
+table.models th,table.models td{border:1px solid var(--line);padding:.24rem .3rem;text-align:center}
+table.models th{background:var(--sea);font-weight:650}
+table.models td.dis{background:var(--amber-soft)}
+table.models td.hko{background:#F0F4FB;font-weight:600}
+#tideSvg{width:100%;height:64px;display:block}
+
+/* Sources bar + footer */
+#sources{display:flex;gap:.4rem;align-items:center;padding:.35rem .9rem;background:var(--panel);
+  border-top:1px solid var(--line);overflow-x:auto;font-size:.74rem;min-height:2.1rem}
+.srcChip{display:inline-flex;gap:.35rem;align-items:center;border:1px solid var(--line);border-radius:999px;
+  padding:.14rem .55rem;white-space:nowrap;cursor:default}
+.srcDot{width:8px;height:8px;border-radius:50%;flex:none}
+.live .srcDot{background:var(--ok)} .stale .srcDot{background:var(--stale)} .down .srcDot{background:var(--down)}
+footer{padding:.45rem .9rem .8rem;background:var(--panel);font-size:.7rem;color:var(--muted);line-height:1.5}
+
+/* Warning drawer */
+#drawer{position:fixed;inset:0;background:rgba(24,46,56,.45);z-index:2000;display:none;align-items:flex-start;justify-content:center;padding:6vh 1rem}
+#drawer.show{display:flex}
+#drawer .box{background:var(--panel);border-radius:12px;max-width:560px;width:100%;max-height:80vh;overflow-y:auto;padding:1rem 1.1rem}
+#drawer h2{margin:.1rem 0 .6rem;font-size:1rem}
+#drawer .close{float:right;font:inherit;background:none;border:1px solid var(--line);border-radius:6px;cursor:pointer;padding:.15rem .55rem}
+.warnDetail{border-left:4px solid var(--line);padding:.35rem .6rem;margin:.5rem 0;font-size:.85rem;line-height:1.5}
+
+@media (max-width:760px){
+  main{flex-direction:column;height:auto}
+  #mapWrap{height:56vh;min-height:330px}
+  #panel{width:100%;max-width:none;border-left:none;border-top:1px solid var(--line)}
+  #radarBar{width:92%}
+  #legend{max-width:200px}
+}
+.leaflet-container{font:inherit}
+.stnLabel{background:none;border:none;box-shadow:none;font-weight:700;font-size:.72rem;color:var(--ink);text-shadow:0 0 3px #fff,0 0 3px #fff}
+</style>
+</head>
+<body>
+<header>
+  <h1>Hong Kong <span>Weather Atlas</span></h1>
+  <span id="clock"></span>
+  <nav class="pageSwitch">
+    <a class="current" href="index.html">Weather</a>
+    <a href="hk_storm_corridor.html">Storm corridor</a>
+    <button id="refreshBtn" title="Refresh all sources">↻ Refresh</button>
+  </nav>
+</header>
+
+<div id="warnRibbon"><span class="none">Checking official warnings…</span></div>
+
+<main>
+  <div id="mapWrap">
+    <div id="map"></div>
+    <div id="views">
+      <button data-view="temp" class="on">Temp 氣溫</button>
+      <button data-view="rain">Rain 雨量</button>
+      <button data-view="radar">Radar 雷達</button>
+    </div>
+    <div id="legend">
+      <h4><span id="legendTitle">Legend</span><button id="legendToggle" title="Collapse">−</button></h4>
+      <div id="legendBody"></div>
+    </div>
+    <div id="radarBar">
+      <button id="radarPlay">▶</button>
+      <input type="range" id="radarSlider" min="0" max="0" value="0">
+      <span class="t" id="radarTime">—</span>
+    </div>
+  </div>
+
+  <aside id="panel">
+    <div class="card" id="nowCard">
+      <h3>Now <span class="provTag prov-obs">Observed · HKO</span></h3>
+      <div class="mutedTxt">Loading current observations…</div>
+    </div>
+    <div class="card" id="swtCard">
+      <h3>Special weather tips <span class="provTag prov-official">Official · HKO</span></h3>
+      <div class="mutedTxt">Loading…</div>
+    </div>
+    <div class="card" id="flwCard">
+      <h3>Local forecast <span class="provTag prov-official">Official · HKO</span></h3>
+      <div class="mutedTxt">Loading…</div>
+    </div>
+    <div class="card" id="fndCard">
+      <h3>9-day outlook <span class="provTag prov-official">Official · HKO</span></h3>
+      <div class="mutedTxt">Loading…</div>
+    </div>
+    <div class="card" id="aqhiCard">
+      <h3>Air quality — AQHI <span class="provTag prov-official">Official · EPD</span></h3>
+      <div class="mutedTxt">Loading…</div>
+    </div>
+    <div class="card" id="hkoRadarCard">
+      <h3>HKO radar <span class="provTag prov-obs">Observed · HKO</span></h3>
+      <div class="mutedTxt">Loading latest official radar image…</div>
+    </div>
+    <div class="card" id="tideCard">
+      <h3>Tides · Quarry Bay <span class="provTag prov-official">Prediction · HKO</span></h3>
+      <div class="mutedTxt">Loading…</div>
+    </div>
+    <div class="card" id="modelCard">
+      <h3>Model board <span class="provTag prov-model">Experimental</span></h3>
+      <div class="mutedTxt">Loading model comparison…</div>
+    </div>
+  </aside>
+</main>
+
+<div id="sources"></div>
+<footer>
+  <b>Privacy:</b> this page contacts only data endpoints — data.weather.gov.hk &amp; www.hko.gov.hk (HKO data
+  and radar imagery), api.open-meteo.com, api.rainviewer.com &amp; tilecache.rainviewer.com (radar composite),
+  tile.openstreetmap.org (basemap). Leaflet is bundled locally — no CDN. No analytics, no cookies, no tracking of any kind.
+  · <b>Authority:</b> the Hong Kong Observatory is the sole warning authority for Hong Kong; this Atlas
+  displays official HKO data alongside clearly labelled model output and never issues warnings of its own.
+</footer>
+
+<div id="drawer"><div class="box">
+  <button class="close" onclick="document.getElementById('drawer').classList.remove('show')">Close</button>
+  <h2>Warnings in force — details</h2>
+  <div id="drawerBody"></div>
+</div></div>
+
+<script>
+"use strict";
+/* ================= shared utilities ================= */
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const HKT=v=>{try{return new Date(v).toLocaleString("en-GB",{timeZone:"Asia/Hong_Kong",hour12:false,day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});}catch{return "—";}};
+const HKTshort=v=>{try{return new Date(v).toLocaleString("en-GB",{timeZone:"Asia/Hong_Kong",hour12:false,hour:"2-digit",minute:"2-digit"});}catch{return "—";}};
+
+/* Source freshness registry: every feed reports fetch time, publication
+ * time and status. Staleness thresholds are per-source publication cadence. */
+const SOURCES={
+  rhrread:{label:"HKO current",ttl:35*60e3},
+  warn:{label:"HKO warnings",ttl:15*60e3},
+  swt:{label:"HKO special tips",ttl:7*3600e3},
+  flw:{label:"HKO local fcst",ttl:4*3600e3},
+  fnd:{label:"HKO 9-day",ttl:9*3600e3},
+  tide:{label:"HKO tides",ttl:26*3600e3},
+  models:{label:"Open-Meteo models",ttl:8*3600e3},
+  aqhi:{label:"EPD AQHI (via Actions)",ttl:150*60e3},
+  hkoradar:{label:"HKO radar imagery",ttl:30*60e3},
+  radar:{label:"RainViewer radar",ttl:30*60e3}
+};
+const srcState={};
+function setSrc(id,status,publishedAt,detail){
+  srcState[id]={status,fetchedAt:Date.now(),publishedAt:publishedAt||null,detail:detail||""};
+  renderSources();
+}
+function renderSources(){
+  $("#sources").innerHTML=Object.entries(SOURCES).map(([id,cfg])=>{
+    const s=srcState[id];
+    if(!s) return `<span class="srcChip"><span class="srcDot" style="background:#bbb"></span>${cfg.label}: pending</span>`;
+    let st=s.status;
+    if(st==="live"&&s.publishedAt&&(Date.now()-new Date(s.publishedAt).getTime()>cfg.ttl)) st="stale";
+    const pub=s.publishedAt?`published ${HKT(s.publishedAt)}`:"publication time not provided";
+    const tip=`fetched ${HKT(s.fetchedAt)} HKT · ${pub}${s.detail?" · "+s.detail:""}`;
+    return `<span class="srcChip ${st}" title="${esc(tip)}"><span class="srcDot"></span>${cfg.label}${st==="stale"?" (stale)":st==="down"?" (unavailable)":""}</span>`;
+  }).join("");
+}
+async function getJson(url){
+  const r=await fetch(url,{cache:"no-store"});
+  if(!r.ok) throw new Error("HTTP "+r.status);
+  return r.json();
+}
+
+/* ================= map ================= */
+const map=L.map("map",{zoomControl:true}).setView([22.36,114.13],11);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,
+  attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(map);
+const layers={temp:L.layerGroup(),rain:L.layerGroup(),radar:L.layerGroup()};
+let activeView="temp";
+layers.temp.addTo(map);
+
+function setView(name){
+  activeView=name;
+  $$("#views button").forEach(b=>b.classList.toggle("on",b.dataset.view===name));
+  Object.entries(layers).forEach(([k,l])=>{ if(k===name) l.addTo(map); else map.removeLayer(l); });
+  $("#radarBar").classList.toggle("show",name==="radar");
+  if(name==="radar"&&!radarLoaded) loadRadar();
+  renderLegend();
+}
+$$("#views button").forEach(b=>b.onclick=()=>setView(b.dataset.view));
+
+/* ---- legends: explicit bands, no ambiguity ---- */
+const TEMP_BANDS=[[34,"#8E1B1B"],[31,"#D63031"],[28,"#E67E22"],[25,"#F1C40F"],[20,"#7FB069"],[15,"#4A90A4"],[-99,"#2C4A7C"]];
+const tColor=v=>TEMP_BANDS.find(b=>v>=b[0])[1];
+const RAIN_BANDS=[[70,"#5E2CA5","≥70 mm"],[30,"#B03A2E","30–70 mm"],[10,"#E67E22","10–30 mm"],[1,"#2E86C1","1–10 mm"],[0,"#9FB8C0","<1 mm"]];
+const rColor=v=>RAIN_BANDS.find(b=>v>=b[0])[1];
+function renderLegend(){
+  const el=$("#legendBody"), t=$("#legendTitle");
+  if(activeView==="temp"){
+    t.textContent="Air temperature — observed";
+    el.innerHTML=[["≥34°C","#8E1B1B"],["31–34","#D63031"],["28–31","#E67E22"],["25–28","#F1C40F"],["20–25","#7FB069"],["15–20","#4A90A4"],["<15","#2C4A7C"]]
+      .map(([l,c])=>`<div class="row"><span class="sw" style="background:${c}"></span>${l}</div>`).join("")
+      +`<div class="note">HKO automatic stations, latest reading. A missing station means no data was returned — not a reading of zero.</div>`;
+  }else if(activeView==="rain"){
+    t.textContent="Rainfall, past hour — by district";
+    el.innerHTML=RAIN_BANDS.slice().reverse().map(b=>`<div class="row"><span class="sw" style="background:${b[1]}"></span>${b[2]}</div>`).join("")
+      +`<div class="note">HKO reports a min–max range per district; markers sit at district centroids and are coloured by the maximum. They locate districts, not rain gauges.</div>`;
+  }else{
+    t.textContent="Radar — regional composite";
+    el.innerHTML=`<div class="row"><span class="sw" style="background:#58B4D1"></span>light</div>
+      <div class="row"><span class="sw" style="background:#3C79C2"></span>moderate</div>
+      <div class="row"><span class="sw" style="background:#E5A03C"></span>heavy</div>
+      <div class="row"><span class="sw" style="background:#C23C3C"></span>intense</div>
+      <div class="note">RainViewer third-party composite — <b>not</b> HKO radar imagery, and coarse
+      (~1&nbsp;km blocks when zoomed in; the sharp official picture is the <b>HKO radar card</b> in the panel).
+      Frames after the marked point are nowcast extrapolations, not observations. No nowcast frames offered = RainViewer published none, not a failure.</div>`;
+  }
+}
+function setLegend(open){const b=$("#legendBody");b.style.display=open?"":"none";$("#legendToggle").textContent=open?"−":"+";}
+$("#legendToggle").onclick=()=>setLegend($("#legendBody").style.display==="none");
+if(window.matchMedia("(max-width:760px)").matches) setLegend(false);
+
+/* ================= HKO weather icons =================
+ * HKO's official icon numbers, rendered as emoji so no image host is
+ * contacted (privacy) and it works offline. Labels are HKO's own wording. */
+const HKO_ICONS={
+  50:["☀️","Sunny"],51:["🌤️","Sunny periods"],52:["⛅","Sunny intervals"],
+  53:["🌦️","Sunny periods with a few showers"],54:["🌦️","Sunny intervals with showers"],
+  60:["☁️","Cloudy"],61:["☁️","Overcast"],62:["🌧️","Light rain"],63:["🌧️","Rain"],
+  64:["🌧️","Heavy rain"],65:["⛈️","Thunderstorms"],
+  70:["🌙","Fine (night)"],71:["🌙","Fine (night)"],72:["🌙","Fine (night)"],
+  73:["🌙","Fine (night)"],74:["🌙","Fine (night)"],75:["🌙","Fine (night)"],
+  76:["☁️","Mainly cloudy (night)"],77:["🌙","Mainly fine (night)"],
+  80:["💨","Windy"],81:["☀️","Dry"],82:["💧","Humid"],83:["🌫️","Fog"],
+  84:["🌫️","Mist"],85:["🌫️","Haze"],
+  90:["🥵","Hot"],91:["🌡️","Warm"],92:["🍃","Cool"],93:["❄️","Cold"]
+};
+const iconOf=n=>HKO_ICONS[Number(n)]||["·","icon "+esc(String(n))];
+
+/* Today line inside the Now card — fed by the fnd feed, which may finish
+ * before or after rhrread; whichever lands second fills it in. */
+function renderTodayLine(){
+  const slot=document.getElementById("todayFcst");
+  const f=window._fnd&&window._fnd.weatherForecast&&window._fnd.weatherForecast[0];
+  if(!slot||!f) return;
+  const [em,lbl]=iconOf(f.ForecastIcon);
+  slot.innerHTML=`<span style="font-size:1.5rem;vertical-align:-4px">${em}</span>
+    <b>Today:</b> ${f.forecastMintemp?.value ?? "—"}–${f.forecastMaxtemp?.value ?? "—"}°C · ${esc(lbl)}
+    <span class="mutedTxt">— ${esc((f.forecastWeather||"").split(".").slice(0,1).join("."))}.</span>`;
+}
+
+
+/* ================= HKO current (rhrread) ================= */
+async function loadCurrent(){
+  try{
+    const d=await getJson("https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=en");
+    setSrc("rhrread","live",d.updateTime);
+    layers.temp.clearLayers(); layers.rain.clearLayers();
+    let matched=0, unmatched=[];
+    (d.temperature?.data||[]).forEach(row=>{
+      const st=HK_TEMP_STATIONS[row.place];
+      if(!st){unmatched.push(row.place);return;}
+      matched++;
+      L.circleMarker([st.lat,st.lon],{radius:9,color:"#fff",weight:1.5,fillColor:tColor(row.value),fillOpacity:.92})
+        .bindPopup(`<b>${esc(row.place)}</b><br>${row.value}°C · observed ${HKTshort(d.temperature.recordTime||d.updateTime)} HKT<br><small>HKO automatic weather station</small>`)
+        .addTo(layers.temp);
+      L.marker([st.lat,st.lon],{interactive:false,icon:L.divIcon({className:"stnLabel",html:`${row.value}°`,iconAnchor:[-7,18]})}).addTo(layers.temp);
+    });
+    (d.rainfall?.data||[]).forEach(row=>{
+      const c=HK_RAIN_DISTRICTS[row.place]; if(!c) return;
+      const mx=Number(row.max)||0;
+      L.circleMarker([c.lat,c.lon],{radius:11,color:"#fff",weight:1.5,fillColor:rColor(mx),fillOpacity:.85})
+        .bindPopup(`<b>${esc(row.place)}</b><br>${row.min ?? 0}–${row.max ?? 0} mm in the past hour<br><small>District range, ending ${HKTshort(d.rainfall.endTime||d.updateTime)} HKT · centroid marker</small>`)
+        .addTo(layers.rain);
+    });
+    /* Now card */
+    const hkoT=(d.temperature?.data||[]).find(r=>r.place==="Hong Kong Observatory");
+    const rh=(d.humidity?.data||[])[0];
+    const uv=(d.uvindex&&d.uvindex.data&&d.uvindex.data[0])?d.uvindex.data[0]:null;
+    const [nowEm,nowLbl]=iconOf(Array.isArray(d.icon)?d.icon[0]:d.icon);
+    $("#nowCard").innerHTML=`<h3>Now <span class="provTag prov-obs">Observed · HKO</span></h3>
+      <div style="display:flex;align-items:center;gap:.7rem">
+        <span style="font-size:2.6rem;line-height:1" title="${esc(nowLbl)}">${nowEm}</span>
+        <div><div class="big">${hkoT?hkoT.value+"°C":"—"}</div>
+        <div class="mutedTxt">${esc(nowLbl)}</div></div>
+      </div>
+      <div class="kv">
+        ${rh?`<span>Humidity <b>${rh.value}%</b></span>`:""}
+        <span>UV ${uv&&uv.value!==""&&uv.value!=null?`<b>${esc(String(uv.value))}</b>${uv.desc?" ("+esc(uv.desc)+")":""}`:`<b>—</b> <small>not published overnight</small>`}</span>
+        ${d.rainfallFrom00To12!=null&&d.rainfallFrom00To12!==""?`<span>Rain since 00:00 <b>${esc(String(d.rainfallFrom00To12))} mm</b></span>`:""}
+      </div>
+      <div class="fcstText" id="todayFcst" style="margin-top:.45rem"></div>
+      ${d.tcmessage?`<div class="mutedTxt" style="margin-top:.4rem"><b>TC message:</b> ${esc(Array.isArray(d.tcmessage)?d.tcmessage.join(" "):d.tcmessage)}</div>`:""}
+      <div class="mutedTxt" style="margin-top:.4rem">At HKO headquarters · updated ${HKT(d.updateTime)} HKT${matched?` · ${matched} stations plotted`:""}</div>
+      ${unmatched.length?`<div class="mutedTxt">Not plotted (no registry position yet): ${esc(unmatched.join(", "))}</div>`:""}`;
+    renderTodayLine();
+  }catch(e){
+    setSrc("rhrread","down",null,String(e));
+    $("#nowCard").innerHTML=`<h3>Now <span class="provTag prov-obs">Observed · HKO</span></h3>
+      <div class="mutedTxt">The HKO current-weather feed could not be reached. Nothing is shown rather than showing old data unlabelled. Retry with ↻, and rely on the official HKO site for decisions.</div>`;
+  }
+}
+
+/* ================= warnings ================= */
+const WARN_COLORS={WRAINA:"#F5A300",WRAINR:"#D63031",WRAINB:"#1B1B1B",TC1:"#7f8c8d",TC3:"#F1C40F",
+  TC8NE:"#E67E22",TC8SE:"#E67E22",TC8NW:"#E67E22",TC8SW:"#E67E22",TC9:"#D35400",TC10:"#B03A2E",
+  WTS:"#E5A03C",WMSGNL:"#16A085",WFNTSA:"#2980B9",WL:"#8E5B3A",WHOT:"#D63031",WCOLD:"#2C4A7C",
+  WFROST:"#7D5BA6",WFIREY:"#E5A03C",WFIRER:"#D63031",WTMW:"#B03A2E"};
+async function loadWarnings(){
+  const rib=$("#warnRibbon");
+  try{
+    const [sum,info]=await Promise.all([
+      getJson("https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warnsum&lang=en"),
+      getJson("https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warningInfo&lang=en")
+    ]);
+    const list=Object.values(sum||{}).filter(w=>w&&w.name);
+    const newest=list.map(w=>w.updateTime||w.issueTime).sort().pop()||null;
+    setSrc("warn","live",newest,list.length?list.length+" in force":"no warnings in force");
+    if(!list.length){
+      rib.innerHTML=`<span class="none">No official warning in force — confirmed live from HKO just now.</span>`;
+    }else{
+      rib.innerHTML=list.map(w=>{
+        const col=WARN_COLORS[w.code]||WARN_COLORS[w.type]||"#5E7681";
+        const txtCol=(w.code==="WRAINB")?"#fff":"#fff";
+        return `<button class="warnChip" style="background:${col};color:${txtCol}" onclick="openDrawer()">⚠ ${esc(w.name)}${w.code&&w.code!==w.type?` (${esc(w.code)})`:""}</button>`;
+      }).join("")+`<span class="none" style="margin-left:.3rem">since ${HKT(list[0].issueTime)} HKT · tap for details</span>`;
+    }
+    const det=(info&&info.details)||[];
+    $("#drawerBody").innerHTML=det.length?det.map(x=>`
+      <div class="warnDetail" style="border-color:${WARN_COLORS[x.warningStatementCode]||"#5E7681"}">
+        <b>${esc(x.warningStatementCode||"")}${x.subtype?" · "+esc(x.subtype):""}</b><br>
+        ${(x.contents||[]).map(esc).join("<br>")}
+        <div class="mutedTxt">Updated ${HKT(x.updateTime)} HKT</div>
+      </div>`).join("")
+      :`<p class="mutedTxt">No warning statements in force at the last successful refresh.</p>`;
+  }catch(e){
+    setSrc("warn","down",null,String(e));
+    rib.innerHTML=`<span class="none" style="color:var(--down)">⚠ Official warning feed unreachable — this is a feed failure, not an all-clear. Check HKO directly.</span>`;
+  }
+}
+function openDrawer(){$("#drawer").classList.add("show");}
+$("#drawer").addEventListener("click",e=>{if(e.target.id==="drawer")e.target.classList.remove("show");});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")$("#drawer").classList.remove("show");});
+
+/* ================= special weather tips (swt) =================
+ * HKO's free-text heads-up channel — pre-genesis lows, signal
+ * considerations, flooding notes. Often the earliest official word. */
+async function loadSwt(){
+  const el=$("#swtCard");
+  const head=`<h3>Special weather tips <span class="provTag prov-official">Official · HKO</span></h3>`;
+  try{
+    const d=await getJson("https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=swt&lang=en");
+    const tips=(d&&d.swt)||[];
+    const newest=tips.map(t=>t.updateTime).sort().pop()||null;
+    setSrc("swt","live",newest,tips.length?tips.length+" tip(s) in force":"none in force");
+    el.innerHTML=head+(tips.length
+      ?tips.map(t=>`<div class="fcstText" style="white-space:pre-line;border-left:3px solid var(--teal);padding-left:.55rem">${esc(t.desc)}</div>
+        <div class="mutedTxt">Issued ${HKT(t.updateTime)} HKT</div>`).join("")
+      :`<div class="mutedTxt">No special weather tips in force — confirmed live from HKO.</div>`);
+  }catch(e){
+    setSrc("swt","down",null,String(e));
+    el.innerHTML=head+`<div class="mutedTxt">HKO special-tips feed unreachable at last refresh — not the same as "no tips in force".</div>`;
+  }
+}
+
+/* ================= local forecast + 9-day ================= */
+async function loadForecasts(){
+  try{
+    const d=await getJson("https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=flw&lang=en");
+    setSrc("flw","live",d.updateTime);
+    $("#flwCard").innerHTML=`<h3>Local forecast <span class="provTag prov-official">Official · HKO</span></h3>
+      <div class="fcstText"><b>${esc(d.forecastPeriod||"")}</b> ${esc(d.forecastDesc||"")}</div>
+      ${d.outlook?`<div class="fcstText"><b>Outlook:</b> ${esc(d.outlook)}</div>`:""}
+      ${d.generalSituation?`<div class="mutedTxt">${esc(d.generalSituation)}</div>`:""}
+      <div class="mutedTxt">Updated ${HKT(d.updateTime)} HKT</div>`;
+  }catch(e){
+    setSrc("flw","down",null,String(e));
+    $("#flwCard").innerHTML=`<h3>Local forecast <span class="provTag prov-official">Official · HKO</span></h3><div class="mutedTxt">HKO local-forecast feed unreachable at last refresh.</div>`;
+  }
+  try{
+    const d=await getJson("https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=fnd&lang=en");
+    setSrc("fnd","live",d.updateTime);
+    window._fnd=d; /* reused by the model board for the HKO column */
+    const rail=(d.weatherForecast||[]).map(f=>{
+      const dd=f.forecastDate, lbl=dd?dd.slice(6,8)+"/"+dd.slice(4,6):"—";
+      const psr=(f.PSR||"").replace(/\s/g,"");
+      const [em,elbl]=iconOf(f.ForecastIcon);
+      return `<div class="dayCell"><div class="d">${esc(f.week?f.week.slice(0,3):"")} ${lbl}</div>
+        <div style="font-size:1.35rem" title="${esc(elbl)}">${em}</div>
+        <div class="tt">${f.forecastMintemp?.value ?? "—"}–${f.forecastMaxtemp?.value ?? "—"}°</div>
+        ${f.PSR?`<span class="psr psr-${esc(psr)}">rain: ${esc(f.PSR)}</span>`:""}
+        <div class="mutedTxt" style="font-size:.68rem;margin-top:.2rem">${esc((f.forecastWeather||"").split(".")[0])}</div></div>`;
+    }).join("");
+    $("#fndCard").innerHTML=`<h3>9-day outlook <span class="provTag prov-official">Official · HKO</span></h3>
+      <div class="dayRail">${rail}</div>
+      ${d.seaTemp?`<div class="mutedTxt">Sea ${d.seaTemp.value}°C at ${esc(d.seaTemp.place)} · "rain:" is HKO's probability of significant rain</div>`:""}
+      <div class="mutedTxt">Updated ${HKT(d.updateTime)} HKT</div>`;
+    buildModelBoard();
+    renderTodayLine();
+  }catch(e){
+    setSrc("fnd","down",null,String(e));
+    $("#fndCard").innerHTML=`<h3>9-day outlook <span class="provTag prov-official">Official · HKO</span></h3><div class="mutedTxt">HKO 9-day feed unreachable at last refresh.</div>`;
+    buildModelBoard();
+  }
+}
+
+/* ================= tides (HHOT, Quarry Bay) ================= */
+async function loadTides(){
+  try{
+    const now=new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Hong_Kong"}));
+    const yr=now.getFullYear();
+    const d=await getJson(`https://data.weather.gov.hk/weatherAPI/opendata/opendata.php?dataType=HHOT&station=${HK_TIDE_STATION.code}&year=${yr}&rformat=json`);
+    setSrc("tide","live",null,"annual prediction table for "+yr);
+    const mm=String(now.getMonth()+1).padStart(2,"0"), dd=String(now.getDate()).padStart(2,"0");
+    const rows=d.data||[];
+    const idx=rows.findIndex(r=>r[0]===mm&&r[1]===dd);
+    if(idx<0) throw new Error("today not found in table");
+    const series=[]; /* 48 h: today + tomorrow, hour ends 01..24 */
+    [rows[idx],rows[idx+1]].forEach((r,dayOff)=>{
+      if(!r) return;
+      for(let h=1;h<=24;h++) series.push({t:dayOff*24+h,v:parseFloat(r[1+h])});
+    });
+    const curH=now.getHours()+now.getMinutes()/60;
+    /* local extrema after now */
+    const ext=[];
+    for(let i=1;i<series.length-1;i++){
+      const a=series[i-1].v,b=series[i].v,c=series[i+1].v;
+      if(!Number.isFinite(a)||!Number.isFinite(b)||!Number.isFinite(c)) continue;
+      if(series[i].t<curH) continue;
+      if(b>=a&&b>c) ext.push({...series[i],kind:"High"});
+      if(b<=a&&b<c) ext.push({...series[i],kind:"Low"});
+    }
+    const nxt=ext.slice(0,2).map(x=>{
+      const hh=((x.t-1)%24), day=x.t<=24?"today":"tomorrow";
+      return `<span>${x.kind} <b>${x.v.toFixed(1)} m</b> ~${String(hh).padStart(2,"0")}:00–${String(hh+1).padStart(2,"0")}:00 ${day}</span>`;
+    }).join(" ");
+    /* sparkline */
+    const w=330,h=64,vmax=Math.max(...series.map(p=>p.v)),vmin=Math.min(...series.map(p=>p.v));
+    const X=t=>(t-1)/(48-1)*w, Y=v=>h-6-(v-vmin)/(vmax-vmin||1)*(h-14);
+    const path=series.map((p,i)=>`${i?"L":"M"}${X(p.t).toFixed(1)},${Y(p.v).toFixed(1)}`).join("");
+    const nowX=X(curH<1?1:curH);
+    $("#tideCard").innerHTML=`<h3>Tides · Quarry Bay <span class="provTag prov-official">Prediction · HKO</span></h3>
+      <svg id="tideSvg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+        <path d="${path}" fill="none" stroke="var(--teal)" stroke-width="2"/>
+        <line x1="${nowX}" y1="4" x2="${nowX}" y2="${h-4}" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="3,3"/>
+      </svg>
+      <div class="kv">${nxt||"<span>No further turning point in the 48 h window.</span>"}</div>
+      <div class="mutedTxt">Astronomical prediction (48 h from now, amber line = now). Actual sea level departs from prediction during storm surge — predictions are <b>not</b> surge forecasts.</div>`;
+  }catch(e){
+    setSrc("tide","down",null,String(e));
+    $("#tideCard").innerHTML=`<h3>Tides · Quarry Bay <span class="provTag prov-official">Prediction · HKO</span></h3><div class="mutedTxt">Tide prediction table unavailable at last refresh (${esc(String(e))}).</div>`;
+  }
+}
+
+/* ================= model board (experimental) ================= */
+const MODELS=[["ecmwf_ifs025","ECMWF"],["gfs_seamless","GFS"],["icon_seamless","ICON"],["jma_seamless","JMA"]];
+async function buildModelBoard(){
+  try{
+    const u="https://api.open-meteo.com/v1/forecast?latitude=22.302&longitude=114.174"
+      +"&daily=temperature_2m_max,temperature_2m_min,precipitation_sum"
+      +"&models="+MODELS.map(m=>m[0]).join(",")+"&timezone=Asia%2FHong_Kong&forecast_days=7";
+    const d=await getJson(u);
+    setSrc("models","live",null,"7-day multi-model point forecast");
+    const days=d.daily.time;
+    const hko={}; /* date -> {max,min} from fnd */
+    ((window._fnd&&window._fnd.weatherForecast)||[]).forEach(f=>{
+      const key=f.forecastDate?`${f.forecastDate.slice(0,4)}-${f.forecastDate.slice(4,6)}-${f.forecastDate.slice(6,8)}`:null;
+      if(key) hko[key]={max:f.forecastMaxtemp?.value,min:f.forecastMintemp?.value};
+    });
+    const rows=days.map((day,i)=>{
+      const h=hko[day];
+      const cells=MODELS.map(([id])=>{
+        const mx=d.daily["temperature_2m_max_"+id]?.[i], mn=d.daily["temperature_2m_min_"+id]?.[i],
+              pr=d.daily["precipitation_sum_"+id]?.[i];
+        if(mx==null) return `<td>—</td>`;
+        const dis=h&&h.max!=null&&Math.abs(mx-h.max)>=2;
+        return `<td class="${dis?"dis":""}">${Math.round(mn)}–${Math.round(mx)}°<br><small>${pr!=null?pr.toFixed(0)+" mm":""}</small></td>`;
+      }).join("");
+      return `<tr><th>${day.slice(5)}</th><td class="hko">${h?`${h.min}–${h.max}°`:"—"}</td>${cells}</tr>`;
+    }).join("");
+    $("#modelCard").innerHTML=`<h3>Model board <span class="provTag prov-model">Experimental</span></h3>
+      <div class="tableWrap"><table class="models"><tr><th></th><th>HKO<br><small>official</small></th>${MODELS.map(m=>`<th>${m[1]}</th>`).join("")}</tr>${rows}</table></div>
+      <div class="mutedTxt" style="margin-top:.4rem">Global-model point forecasts (Open-Meteo) beside HKO's official 9-day.
+      Amber cells differ from HKO's max by ≥2°C. Disagreement is information about uncertainty, not a verdict —
+      HKO is authoritative for Hong Kong, but the only truth is what verifies afterwards. A hindsight scoring view is on the roadmap.</div>`;
+  }catch(e){
+    setSrc("models","down",null,String(e));
+    $("#modelCard").innerHTML=`<h3>Model board <span class="provTag prov-model">Experimental</span></h3><div class="mutedTxt">Open-Meteo model feed unreachable at last refresh. The official HKO forecast above is unaffected.</div>`;
+  }
+}
+
+/* ================= AQHI (EPD, via Actions data file) =================
+ * EPD's feed is CORS-locked to its own origin, so a static page cannot
+ * fetch it live. hk_aqhi.js is regenerated hourly by GitHub Actions —
+ * matching EPD's own hourly cadence — and the record time is shown so
+ * any staleness is visible, never hidden. */
+const AQHI_BANDS=[["Serious","#000000"],["Very High","#7D4A21"],["High","#D63031"],["Moderate","#E67E22"],["Low","#2E8B57"]];
+const aqhiColor=r=>(AQHI_BANDS.find(b=>b[0]===r)||["","#5E7681"])[1];
+function renderAqhi(){
+  const el=$("#aqhiCard");
+  const head=`<h3>Air quality — AQHI <span class="provTag prov-official">Official · EPD</span></h3>`;
+  if(typeof HK_AQHI==="undefined"||!HK_AQHI.stations||!HK_AQHI.stations.length){
+    setSrc("aqhi","down",null,"hk_aqhi.js missing or empty");
+    el.innerHTML=head+`<div class="mutedTxt">The AQHI data file (hk_aqhi.js) is missing or empty — if you uploaded
+      the pages by hand, it may not have been included. EPD blocks direct browser fetches (CORS), so this card
+      depends on the hourly GitHub Actions ingest. Check <a href="https://www.aqhi.gov.hk/en.html" rel="noopener">aqhi.gov.hk</a> directly.</div>`;
+    return;
+  }
+  const gen=(HK_AQHI.stations||[]).filter(s=>s.type==="general");
+  const road=(HK_AQHI.stations||[]).filter(s=>s.type==="roadside");
+  const num=s=>parseInt(String(s.aqhi))||0;
+  const worst=[...HK_AQHI.stations].sort((a,b)=>num(b)-num(a))[0];
+  const ageMs=Date.now()-new Date(HK_AQHI.generatedAt).getTime();
+  setSrc("aqhi",ageMs>150*60e3?"stale":"live",HK_AQHI.generatedAt,"record "+HK_AQHI.recordTime);
+  const chip=s=>`<span title="${esc(s.name)} (${s.type}): AQHI ${esc(s.aqhi)} ${esc(s.risk)}"
+      style="display:inline-flex;gap:.3rem;align-items:center;border:1px solid var(--line);border-radius:6px;padding:.1rem .4rem;font-size:.74rem;margin:.12rem .12rem 0 0">
+      <span style="width:9px;height:9px;border-radius:50%;background:${aqhiColor(s.risk)}"></span>${esc(s.name)} <b>${esc(s.aqhi)}</b></span>`;
+  el.innerHTML=head+
+    `<div class="kv"><span>Territory-wide health risk: <b style="color:${aqhiColor(worst.risk)}">${esc(worst.risk)}</b> (worst station ${esc(worst.name)}, AQHI ${esc(worst.aqhi)})</span></div>
+     <div style="margin-top:.35rem"><span class="mutedTxt">General:</span><br>${gen.map(chip).join("")}</div>
+     ${road.length?`<div style="margin-top:.3rem"><span class="mutedTxt">Roadside:</span><br>${road.map(chip).join("")}</div>`:""}
+     <div class="mutedTxt" style="margin-top:.45rem">EPD record ${esc(HK_AQHI.recordTime)} · refreshed hourly via GitHub Actions
+     because EPD's feed blocks direct browser access${ageMs>150*60e3?" · <b>this copy is stale — the Actions ingest may be failing</b>":""}.</div>`;
+}
+
+/* ================= HKO official radar imagery =================
+ * Official radar pictures at predictable 6-minute URLs. Shown as an image
+ * card (like the Japan Atlas chart mode) rather than force-georeferencing
+ * onto the map. No CORS needed: it is a plain <img>. */
+const HKO_RADAR_RANGES=["064","128","256"];
+let hkoRadarRange="128", hkoRadarStamps=[], hkoRadarIdx=0;
+function radarStamp(d){ /* floor to 6-minute mark, HKT */
+  const t=new Date(d.getTime());
+  t.setMinutes(t.getMinutes()-t.getMinutes()%6,0,0);
+  const p=n=>String(n).padStart(2,"0");
+  const hk=new Date(t.toLocaleString("en-US",{timeZone:"Asia/Hong_Kong"}));
+  return `${hk.getFullYear()}${p(hk.getMonth()+1)}${p(hk.getDate())}${p(hk.getHours())}${p(hk.getMinutes())}`;
+}
+function hkoRadarUrl(rng,stamp){return `https://www.hko.gov.hk/wxinfo/radars/rad_${rng}_png/2d${rng}nradar_${stamp}.jpg`;}
+function probeImg(url){return new Promise(res=>{const im=new Image();im.onload=()=>res(true);im.onerror=()=>res(false);im.src=url;});}
+async function loadHkoRadar(){
+  const el=$("#hkoRadarCard");
+  const head=`<h3>HKO radar <span class="provTag prov-obs">Observed · HKO</span></h3>`;
+  /* walk back in 6-min steps to find the newest published image */
+  let latest=null;
+  for(let back=0;back<10;back++){
+    const st=radarStamp(new Date(Date.now()-back*6*60e3));
+    if(await probeImg(hkoRadarUrl(hkoRadarRange,st))){latest=st;break;}
+  }
+  if(!latest){
+    setSrc("hkoradar","down",null,"no image found in the last hour");
+    el.innerHTML=head+`<div class="mutedTxt">No HKO radar image could be loaded for the past hour — the image
+      service may be down or the URL scheme may have changed. The RainViewer overlay on the map is independent of this.</div>`;
+    return;
+  }
+  /* offer the last ten frames (published every 6 min) */
+  hkoRadarStamps=[];
+  for(let back=9;back>=0;back--){
+    const t=new Date(new Date(
+      latest.slice(0,4)+"-"+latest.slice(4,6)+"-"+latest.slice(6,8)+"T"+latest.slice(8,10)+":"+latest.slice(10,12)+":00+08:00"
+    ).getTime()-back*6*60e3);
+    hkoRadarStamps.push(radarStamp(t));
+  }
+  hkoRadarIdx=hkoRadarStamps.length-1;
+  const pub=hkoRadarStamps[hkoRadarIdx];
+  setSrc("hkoradar","live",
+    `${pub.slice(0,4)}-${pub.slice(4,6)}-${pub.slice(6,8)}T${pub.slice(8,10)}:${pub.slice(10,12)}:00+08:00`,
+    `${hkoRadarRange} km range imagery`);
+  el.innerHTML=head+
+    `<div style="display:flex;gap:.35rem;margin-bottom:.4rem">${HKO_RADAR_RANGES.map(r=>
+      `<button onclick="setHkoRange('${r}')" style="font:inherit;font-size:.76rem;padding:.2rem .55rem;border-radius:6px;cursor:pointer;
+        border:1px solid var(--line);background:${r===hkoRadarRange?"var(--teal)":"var(--sea)"};color:${r===hkoRadarRange?"#fff":"var(--ink)"}">${+r} km</button>`).join("")}</div>
+    <img id="hkoRadarImg" src="${hkoRadarUrl(hkoRadarRange,hkoRadarStamps[hkoRadarIdx])}" alt="HKO ${+hkoRadarRange} km radar"
+      style="width:100%;border-radius:8px;border:1px solid var(--line)"
+      onerror="this.alt='This frame failed to load.';this.style.opacity=.3">
+    <div style="display:flex;align-items:center;gap:.5rem;margin-top:.35rem">
+      <input type="range" min="0" max="${hkoRadarStamps.length-1}" value="${hkoRadarIdx}" style="flex:1"
+        oninput="setHkoFrame(+this.value)">
+      <span class="mutedTxt" id="hkoRadarTime" style="font-variant-numeric:tabular-nums">${radarLabel(hkoRadarStamps[hkoRadarIdx])}</span>
+    </div>
+    <div class="mutedTxt" style="margin-top:.3rem">Official HKO imagery, 6-minute frames, shown as published
+      (not re-projected onto the map). © Hong Kong Observatory.</div>`;
+}
+function radarLabel(st){return `${st.slice(8,10)}:${st.slice(10,12)} HKT`;}
+function setHkoFrame(i){
+  hkoRadarIdx=i;
+  const img=$("#hkoRadarImg");
+  img.style.opacity=1;
+  img.src=hkoRadarUrl(hkoRadarRange,hkoRadarStamps[i]);
+  $("#hkoRadarTime").textContent=radarLabel(hkoRadarStamps[i]);
+}
+function setHkoRange(r){hkoRadarRange=r;loadHkoRadar();}
+window.setHkoFrame=setHkoFrame;window.setHkoRange=setHkoRange;
+
+/* ================= radar (RainViewer composite) =================
+ * The animation is a sequence of still tile images, not a video. To play
+ * smoothly, every frame's tile layer is created once and kept on the map
+ * at opacity 0; stepping just swaps opacities, so tiles never reload and
+ * nothing flashes. Cadence is deliberately calm: ~1 s per frame with a
+ * 2.5 s hold on the newest observed frame before the loop restarts. */
+let radarLoaded=false, radarFrames=[], radarNowcastFrom=0, radarTimer=null;
+const radarFrameLayers=new Map(); /* frame index -> L.tileLayer */
+const RADAR_OPACITY=.75, RADAR_STEP_MS=1000, RADAR_DWELL_MS=2500;
+let radarCurrent=-1;
+
+function radarLayerFor(i){
+  if(radarFrameLayers.has(i)) return radarFrameLayers.get(i);
+  const f=radarFrames[i];
+  const ly=L.tileLayer(`${window._rvHost}${f.path}/256/{z}/{x}/{y}/2/1_1.png`,
+    {opacity:0,attribution:"RainViewer",
+     maxNativeZoom:7,maxZoom:18 /* real data over this region stops at z7;
+     beyond that RainViewer serves blank or "Zoom Level Not Supported"
+     placeholder tiles, so Leaflet upscales the real echoes instead. */});
+  let tileFails=0;
+  ly.on("tileerror",()=>{
+    if(++tileFails===3) $("#radarTime").innerHTML+=` <span style="color:var(--down)">· some tiles failed (third-party) — HKO radar card in the panel is unaffected</span>`;
+  });
+  ly.addTo(layers.radar);
+  radarFrameLayers.set(i,ly);
+  return ly;
+}
+function setRadarFrame(i){
+  if(!radarFrames[i]) return;
+  radarLayerFor(i).setOpacity(RADAR_OPACITY);
+  if(radarCurrent!==-1&&radarCurrent!==i&&radarFrameLayers.has(radarCurrent))
+    radarFrameLayers.get(radarCurrent).setOpacity(0);
+  radarCurrent=i;
+  $("#radarSlider").value=i;
+  const f=radarFrames[i], nc=i>=radarNowcastFrom;
+  $("#radarTime").innerHTML=`${HKTshort(f.time*1000)} HKT ${nc?'<span class="nc">NOWCAST</span>':"observed"}`;
+  /* quietly warm the next frame so its tiles are cached before it shows */
+  const nxt=(i+1)%radarFrames.length;
+  if(radarFrames.length>1) radarLayerFor(nxt);
+}
+function radarStopPlay(){
+  if(radarTimer){clearTimeout(radarTimer);radarTimer=null;$("#radarPlay").textContent="▶";}
+}
+function radarPlayStep(){
+  const next=(radarCurrent+1)%radarFrames.length;
+  setRadarFrame(next);
+  /* hold longest on the newest observed frame — the one that matters */
+  const dwell=(next===Math.max(0,radarNowcastFrom-1))?RADAR_DWELL_MS:RADAR_STEP_MS;
+  radarTimer=setTimeout(radarPlayStep,dwell);
+}
+async function loadRadar(){
+  try{
+    const d=await getJson("https://api.rainviewer.com/public/weather-maps.json");
+    const past=(d.radar&&d.radar.past)||[], nc=(d.radar&&d.radar.nowcast)||[];
+    const frames=[...past,...nc];
+    if(!frames.length) throw new Error("no frames returned");
+    /* frame set changed (new publication) -> rebuild the layer pool */
+    const changed=frames.length!==radarFrames.length||
+      !frames.every((f,i)=>radarFrames[i]&&radarFrames[i].path===f.path);
+    if(changed){
+      radarStopPlay();
+      radarFrameLayers.forEach(ly=>layers.radar.removeLayer(ly));
+      radarFrameLayers.clear();
+      radarCurrent=-1;
+      radarFrames=frames; radarNowcastFrom=past.length;
+      window._rvHost=d.host;
+      const sl=$("#radarSlider"); sl.max=radarFrames.length-1;
+      setRadarFrame(radarNowcastFrom-1);
+      sl.oninput=()=>{radarStopPlay();setRadarFrame(+sl.value);};
+      $("#radarPlay").onclick=()=>{
+        if(radarTimer){radarStopPlay();return;}
+        $("#radarPlay").textContent="⏸";
+        radarPlayStep();
+      };
+    }
+    radarLoaded=true;
+    setSrc("radar","live",new Date(past[past.length-1].time*1000).toISOString(),`${past.length} observed + ${nc.length} nowcast frames`);
+  }catch(e){
+    radarLoaded=false;
+    setSrc("radar","down",null,String(e));
+    $("#radarTime").textContent="radar unavailable";
+  }
+}
+/* ================= refresh loop ================= */
+async function refreshAll(){
+  renderAqhi();
+  loadHkoRadar();
+  await Promise.allSettled([loadWarnings(),loadSwt(),loadCurrent(),loadForecasts(),loadTides()]);
+  if(radarLoaded||activeView==="radar") loadRadar();
+}
+$("#refreshBtn").onclick=refreshAll;
+setInterval(refreshAll,5*60e3);
+setInterval(()=>{$("#clock").textContent=new Date().toLocaleString("en-GB",{timeZone:"Asia/Hong_Kong",hour12:false,weekday:"short",hour:"2-digit",minute:"2-digit",second:"2-digit"})+" HKT";},1000);
+renderLegend(); renderSources(); refreshAll();
+</script>
+</body>
+</html>
