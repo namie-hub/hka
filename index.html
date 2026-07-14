@@ -133,7 +133,7 @@ footer{padding:.45rem .9rem .8rem;background:var(--panel);font-size:.7rem;color:
   main{flex-direction:column;height:auto}
   #mapWrap{height:56vh;min-height:330px}
   #panel{width:100%;max-width:none;border-left:none;border-top:1px solid var(--line)}
-  main.sidebar-collapsed #mapWrap{height:calc(100dvh - 110px);min-height:390px}
+  main.sidebar-collapsed #mapWrap{flex:none;height:70dvh;min-height:390px} /* flex:none lets the JS-measured height win over flex-basis; 70dvh is the no-JS fallback */
   main.sidebar-collapsed #panel{display:none}
   #radarBar{width:92%}
   #legend{max-width:200px}
@@ -810,16 +810,42 @@ async function refreshAll(announce){
 }
 $("#refreshBtn").addEventListener("click",()=>refreshAll(true));
 
-const panelToggle=$("#panelToggle"), main=$("main");
+const panelToggle=$("#panelToggle"), mainEl=$("main");
+/* Fullscreen-map sizing by measurement, not assumption: the header can wrap
+ * to two or three rows depending on device and warning length, so a fixed
+ * "viewport minus N px" is wrong somewhere on every phone. Instead, measure
+ * where the map actually starts and fill down to the real viewport bottom.
+ * Re-measure on rotation and when iOS Safari's toolbar grows or shrinks. */
+const mapWrapEl=document.getElementById("mapWrap");
+function fitCollapsedMap(){
+  /* Above the mobile breakpoint the desktop flex layout governs and the
+   * toggle is hidden — clear any phone-mode inline height and stand down. */
+  if(window.innerWidth>760||!mainEl.classList.contains("sidebar-collapsed")){
+    if(mapWrapEl.style.height){ mapWrapEl.style.height=""; map.invalidateSize(); }
+    return;
+  }
+  window.scrollTo(0,0);
+  const top=mapWrapEl.getBoundingClientRect().top;
+  const vh=(window.visualViewport&&window.visualViewport.height)||window.innerHeight;
+  mapWrapEl.style.height=Math.max(320,Math.round(vh-top))+"px";
+  map.invalidateSize();
+}
+let fitDebounce=null;
+function fitSoon(){ /* let the header finish re-wrapping before measuring */
+  clearTimeout(fitDebounce); fitDebounce=setTimeout(fitCollapsedMap,160);
+}
+window.addEventListener("resize",fitSoon);
+window.addEventListener("orientationchange",fitSoon);
+if(window.visualViewport) window.visualViewport.addEventListener("resize",fitSoon);
+
 function setPanelCollapsed(collapsed){
-  main.classList.toggle("sidebar-collapsed",collapsed);
+  mainEl.classList.toggle("sidebar-collapsed",collapsed);
   panelToggle.setAttribute("aria-expanded",String(!collapsed));
   panelToggle.textContent=collapsed?"☰ Details":"× Hide details";
   panelToggle.title=collapsed?"Show forecast panel":"Hide forecast panel";
-  // Leaflet measures its container at start-up; recalculate after the layout changes.
-  window.setTimeout(()=>map.invalidateSize(),180);
+  window.setTimeout(fitCollapsedMap,180);
 }
-panelToggle.addEventListener("click",()=>setPanelCollapsed(!main.classList.contains("sidebar-collapsed")));
+panelToggle.addEventListener("click",()=>setPanelCollapsed(!mainEl.classList.contains("sidebar-collapsed")));
 setInterval(()=>refreshAll(false),5*60e3);
 setInterval(()=>{$("#clock").textContent=new Date().toLocaleString("en-GB",{timeZone:"Asia/Hong_Kong",hour12:false,weekday:"short",hour:"2-digit",minute:"2-digit",second:"2-digit"})+" HKT";},1000);
 renderLegend(); renderSources(); refreshAll(false);
