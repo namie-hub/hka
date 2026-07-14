@@ -62,6 +62,10 @@ main{display:flex;height:calc(100vh - 96px);height:calc(100dvh - 96px);min-heigh
 #map{position:absolute;inset:0;background:#C9D8DC}
 #layersBox{position:absolute;top:.7rem;left:.7rem;z-index:1100;background:var(--panel);border:1px solid var(--line);
   border-radius:var(--radius);box-shadow:var(--shadow);padding:.5rem .7rem;font-size:.82rem}
+#layersBox h4{margin:0;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+  display:flex;justify-content:space-between;align-items:center;gap:.8rem}
+#layersBox h4 button{background:none;border:none;cursor:pointer;color:var(--muted);padding:0;font-size:.85rem}
+#layersBody{margin-top:.25rem}
 #layersBox label{display:flex;gap:.4rem;align-items:center;margin:.15rem 0;cursor:pointer}
 #legend{position:absolute;bottom:1.6rem;left:.7rem;z-index:1000;background:var(--panel);border:1px solid var(--line);
   border-radius:var(--radius);box-shadow:var(--shadow);padding:.55rem .7rem;font-size:.76rem;max-width:280px}
@@ -122,11 +126,14 @@ footer{padding:.45rem .9rem .8rem;background:var(--panel);font-size:.7rem;color:
   <div id="mapWrap">
     <div id="map"></div>
     <div id="layersBox">
+      <h4>Layers <button id="layersToggle" title="Collapse">−</button></h4>
+      <div id="layersBody">
       <label><input type="checkbox" id="lyTracks" checked> JMA cyclone tracks</label>
       <label><input type="checkbox" id="lySat"> Himawari infrared</label>
       <label><input type="checkbox" id="lyRadar"> Regional radar</label>
       <label><input type="checkbox" id="lyIso"> Isobars — model <span class="provTag prov-model" style="margin-left:.2rem">Experimental</span></label>
       <label><input type="checkbox" id="lyGeo" checked> PAR + distance rings</label>
+      </div>
     </div>
     <div id="satTime"></div>
     <div id="legend">
@@ -529,8 +536,11 @@ $("#lySat").onchange=e=>{ if(e.target.checked){gSat.addTo(map);$("#satTime").sty
 $("#lyRadar").onchange=e=>{ if(e.target.checked){gRadar.addTo(map);if(!radarLayer)loadRadar();} else map.removeLayer(gRadar); };
 function setLegend(open){const b=$("#legendBody");b.style.display=open?"":"none";$("#legendToggle").textContent=open?"−":"+";}
 $("#legendToggle").onclick=()=>setLegend($("#legendBody").style.display==="none");
-/* On phones the full legend can cover the layer switches — start collapsed. */
-if(window.matchMedia("(max-width:760px)").matches) setLegend(false);
+function setLayers(open){const b=$("#layersBody");b.style.display=open?"":"none";$("#layersToggle").textContent=open?"−":"+";}
+$("#layersToggle").onclick=()=>setLayers($("#layersBody").style.display==="none");
+/* On phones both boxes cover too much map — start collapsed. Layer states
+ * are unaffected by collapsing; only the switches are hidden. */
+if(window.matchMedia("(max-width:760px)").matches){ setLegend(false); setLayers(false); }
 
 async function refreshAll(){
   await Promise.allSettled([loadWarnings(),loadSwt(),loadCyclones()]);
