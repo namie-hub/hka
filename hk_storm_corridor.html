@@ -44,6 +44,8 @@ header h1 span{color:var(--teal)}
 .pageSwitch a,.pageSwitch button{font:inherit;font-size:.82rem;text-decoration:none;color:var(--ink);
   background:var(--sea);border:1px solid var(--line);border-radius:999px;padding:.28rem .75rem;cursor:pointer}
 .pageSwitch a.current{background:var(--teal);color:#fff;border-color:var(--teal)}
+#panelToggle{display:none}
+button:focus-visible,a:focus-visible{outline:3px solid rgba(15,123,138,.35);outline-offset:2px}
 #clock{font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
 
 #warnRibbon{display:flex;gap:.45rem;align-items:center;padding:.4rem .9rem;background:var(--panel);
@@ -99,9 +101,17 @@ main{display:flex;height:calc(100vh - 96px);height:calc(100dvh - 96px);min-heigh
 footer{padding:.45rem .9rem .8rem;background:var(--panel);font-size:.7rem;color:var(--muted);line-height:1.5}
 
 @media (max-width:760px){
+  header{gap:.45rem;padding:.5rem .7rem}
+  header h1{font-size:.95rem}
+  #clock{order:3;width:100%;font-size:.74rem}
+  .pageSwitch{margin-left:0;gap:.3rem}
+  .pageSwitch a,.pageSwitch button{padding:.27rem .55rem}
+  #panelToggle{display:inline-flex;align-items:center;gap:.28rem}
   main{flex-direction:column;height:auto}
   #mapWrap{height:58vh;min-height:340px}
   #panel{width:100%;max-width:none;border-left:none;border-top:1px solid var(--line)}
+  main.sidebar-collapsed #mapWrap{height:calc(100dvh - 110px);min-height:390px}
+  main.sidebar-collapsed #panel{display:none}
   #legend{max-width:210px}
 }
 .leaflet-container{font:inherit}
@@ -116,6 +126,7 @@ footer{padding:.45rem .9rem .8rem;background:var(--panel);font-size:.7rem;color:
   <nav class="pageSwitch">
     <a href="index.html">Weather</a>
     <a class="current" href="hk_storm_corridor.html">Storm corridor</a>
+    <button id="panelToggle" type="button" aria-controls="panel" aria-expanded="true" title="Hide details panel">☰ Details</button>
     <button id="refreshBtn" title="Refresh all sources">↻ Refresh</button>
   </nav>
 </header>
@@ -549,6 +560,16 @@ async function refreshAll(){
   if(map.hasLayer(gIso)) loadIsobars();
 }
 $("#refreshBtn").onclick=refreshAll;
+const panelToggle=$("#panelToggle"), mainEl=document.querySelector("main");
+function setPanelCollapsed(collapsed){
+  mainEl.classList.toggle("sidebar-collapsed",collapsed);
+  panelToggle.setAttribute("aria-expanded",String(!collapsed));
+  panelToggle.textContent=collapsed?"☰ Details":"× Hide details";
+  panelToggle.title=collapsed?"Show details panel":"Hide details panel";
+  /* Leaflet measures its container at start-up; recalculate after layout changes. */
+  window.setTimeout(()=>map.invalidateSize(),180);
+}
+panelToggle.addEventListener("click",()=>setPanelCollapsed(!mainEl.classList.contains("sidebar-collapsed")));
 setInterval(refreshAll,5*60e3);
 setInterval(()=>{$("#clock").textContent=new Date().toLocaleString("en-GB",{timeZone:"Asia/Hong_Kong",hour12:false,weekday:"short",hour:"2-digit",minute:"2-digit",second:"2-digit"})+" HKT";},1000);
 refreshAll();

@@ -32,6 +32,8 @@ header h1 span{color:var(--teal)}
 .pageSwitch a,.pageSwitch button{font:inherit;font-size:.82rem;text-decoration:none;color:var(--ink);
   background:var(--sea);border:1px solid var(--line);border-radius:999px;padding:.28rem .75rem;cursor:pointer}
 .pageSwitch a.current{background:var(--teal);color:#fff;border-color:var(--teal)}
+.pageSwitch button[disabled]{opacity:.7;cursor:wait}
+#panelToggle{display:none}
 #clock{font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
 
 /* Warning ribbon */
@@ -122,12 +124,22 @@ footer{padding:.45rem .9rem .8rem;background:var(--panel);font-size:.7rem;color:
 .warnDetail{border-left:4px solid var(--line);padding:.35rem .6rem;margin:.5rem 0;font-size:.85rem;line-height:1.5}
 
 @media (max-width:760px){
+  header{gap:.45rem;padding:.5rem .7rem}
+  header h1{font-size:.95rem}
+  #clock{order:3;width:100%;font-size:.74rem}
+  .pageSwitch{margin-left:0;gap:.3rem}
+  .pageSwitch a,.pageSwitch button{padding:.27rem .55rem}
+  #panelToggle{display:inline-flex;align-items:center;gap:.28rem}
   main{flex-direction:column;height:auto}
   #mapWrap{height:56vh;min-height:330px}
   #panel{width:100%;max-width:none;border-left:none;border-top:1px solid var(--line)}
+  main.sidebar-collapsed #mapWrap{height:calc(100dvh - 110px);min-height:390px}
+  main.sidebar-collapsed #panel{display:none}
   #radarBar{width:92%}
   #legend{max-width:200px}
 }
+.srOnly{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+button:focus-visible,a:focus-visible{outline:3px solid rgba(15,123,138,.35);outline-offset:2px}
 .leaflet-container{font:inherit}
 .stnLabel{background:none;border:none;box-shadow:none;font-weight:700;font-size:.72rem;color:var(--ink);text-shadow:0 0 3px #fff,0 0 3px #fff}
 </style>
@@ -139,8 +151,10 @@ footer{padding:.45rem .9rem .8rem;background:var(--panel);font-size:.7rem;color:
   <nav class="pageSwitch">
     <a class="current" href="index.html">Weather</a>
     <a href="hk_storm_corridor.html">Storm corridor</a>
+    <button id="panelToggle" type="button" aria-controls="panel" aria-expanded="true" title="Hide forecast panel">☰ Details</button>
     <button id="refreshBtn" title="Refresh all sources">↻ Refresh</button>
   </nav>
+  <span id="refreshStatus" class="srOnly" role="status" aria-live="polite"></span>
 </header>
 
 <div id="warnRibbon"><span class="none">Checking official warnings…</span></div>
@@ -764,16 +778,51 @@ async function loadRadar(){
   }
 }
 /* ================= refresh loop ================= */
-async function refreshAll(){
-  renderAqhi();
-  loadHkoRadar();
-  await Promise.allSettled([loadWarnings(),loadSwt(),loadCurrent(),loadForecasts(),loadTides()]);
-  if(radarLoaded||activeView==="radar") loadRadar();
+let refreshInFlight=null;
+/* announce=true only for user-initiated refreshes: the page auto-refreshes
+ * every 5 minutes, and narrating that to a screen reader twelve times an
+ * hour is noise, not information. The visual button state still updates. */
+async function refreshAll(announce){
+  if(refreshInFlight) return refreshInFlight;
+  const button=$("#refreshBtn"), status=$("#refreshStatus");
+  button.disabled=true;
+  button.textContent="↻ Refreshing…";
+  button.setAttribute("aria-busy","true");
+  if(announce) status.textContent="Refreshing weather data.";
+  refreshInFlight=(async()=>{
+    try{
+      renderAqhi();
+      await Promise.allSettled([loadWarnings(),loadSwt(),loadCurrent(),loadForecasts(),loadTides(),loadHkoRadar()]);
+      if(radarLoaded||activeView==="radar") await loadRadar();
+      const unavailable=Object.values(srcState).filter(s=>s.status==="down").length;
+      if(announce) status.textContent=unavailable?`Refresh completed; ${unavailable} source${unavailable===1?"":"s"} could not be reached.`:"Weather data refreshed.";
+    }catch(error){
+      console.error("Weather refresh failed",error);
+      if(announce) status.textContent="Refresh could not be completed. Please try again.";
+    }finally{
+      button.disabled=false;
+      button.textContent="↻ Refresh";
+      button.removeAttribute("aria-busy");
+      refreshInFlight=null;
+    }
+  })();
+  return refreshInFlight;
 }
-$("#refreshBtn").onclick=refreshAll;
-setInterval(refreshAll,5*60e3);
+$("#refreshBtn").addEventListener("click",()=>refreshAll(true));
+
+const panelToggle=$("#panelToggle"), main=$("main");
+function setPanelCollapsed(collapsed){
+  main.classList.toggle("sidebar-collapsed",collapsed);
+  panelToggle.setAttribute("aria-expanded",String(!collapsed));
+  panelToggle.textContent=collapsed?"☰ Details":"× Hide details";
+  panelToggle.title=collapsed?"Show forecast panel":"Hide forecast panel";
+  // Leaflet measures its container at start-up; recalculate after the layout changes.
+  window.setTimeout(()=>map.invalidateSize(),180);
+}
+panelToggle.addEventListener("click",()=>setPanelCollapsed(!main.classList.contains("sidebar-collapsed")));
+setInterval(()=>refreshAll(false),5*60e3);
 setInterval(()=>{$("#clock").textContent=new Date().toLocaleString("en-GB",{timeZone:"Asia/Hong_Kong",hour12:false,weekday:"short",hour:"2-digit",minute:"2-digit",second:"2-digit"})+" HKT";},1000);
-renderLegend(); renderSources(); refreshAll();
+renderLegend(); renderSources(); refreshAll(false);
 </script>
 </body>
 </html>
