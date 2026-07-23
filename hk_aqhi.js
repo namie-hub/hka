@@ -2,20 +2,20 @@
  * EPD publishes AQHI hourly; this file is refreshed hourly by Actions.
  * The page shows recordTime so any staleness is visible, never hidden. */
 const HK_AQHI = {
-  "generatedAt": "2026-07-23T18:48:52+00:00",
-  "recordTime": "Fri, 24 Jul 2026 02:30",
+  "generatedAt": "2026-07-23T22:34:54+00:00",
+  "recordTime": "Fri, 24 Jul 2026 06:30",
   "source": "EPD aqhi.gov.hk RSS (CORS-locked; ingested hourly by GitHub Actions)",
   "stations": [
     {
       "name": "Central/Western",
       "type": "general",
-      "aqhi": "3",
+      "aqhi": "2",
       "risk": "Low"
     },
     {
       "name": "Southern",
       "type": "general",
-      "aqhi": "3",
+      "aqhi": "2",
       "risk": "Low"
     },
     {
@@ -27,7 +27,7 @@ const HK_AQHI = {
     {
       "name": "Kwun Tong",
       "type": "general",
-      "aqhi": "3",
+      "aqhi": "2",
       "risk": "Low"
     },
     {
@@ -39,19 +39,19 @@ const HK_AQHI = {
     {
       "name": "Kwai Chung",
       "type": "general",
-      "aqhi": "3",
+      "aqhi": "2",
       "risk": "Low"
     },
     {
       "name": "Tsuen Wan",
       "type": "general",
-      "aqhi": "3",
+      "aqhi": "2",
       "risk": "Low"
     },
     {
       "name": "Tseung Kwan O",
       "type": "general",
-      "aqhi": "3",
+      "aqhi": "2",
       "risk": "Low"
     },
     {
@@ -63,7 +63,7 @@ const HK_AQHI = {
     {
       "name": "Tuen Mun",
       "type": "general",
-      "aqhi": "3",
+      "aqhi": "2",
       "risk": "Low"
     },
     {
@@ -93,25 +93,25 @@ const HK_AQHI = {
     {
       "name": "Tap Mun",
       "type": "general",
-      "aqhi": "2",
+      "aqhi": "1",
       "risk": "Low"
     },
     {
       "name": "Causeway Bay",
       "type": "roadside",
-      "aqhi": "3",
+      "aqhi": "2",
       "risk": "Low"
     },
     {
       "name": "Central",
       "type": "roadside",
-      "aqhi": "3",
+      "aqhi": "2",
       "risk": "Low"
     },
     {
       "name": "Mong Kok",
       "type": "roadside",
-      "aqhi": "3",
+      "aqhi": "2",
       "risk": "Low"
     }
   ]
