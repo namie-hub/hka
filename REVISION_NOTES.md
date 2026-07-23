@@ -38,3 +38,27 @@ instead of falling back to "+N h"; TC signal codes render as readable names ("No
 instead of "TC8NE"); the confidence label is explicitly attributed as the Atlas's lead-time rule
 of thumb rather than an HKO product; and the track card's cross-reference was updated to the
 renamed "Where the cyclone may pass" card.
+
+## Ingest pipeline fix — 23 Jul 2026 (staleness incident)
+
+**Incident:** at 22:06 HKT on 23 Jul the page still showed the 16:00 HKT TC
+bulletin while HKO had published the 22:00 bulletin (20:00 obs); the 16:00
+bulletin itself had only been committed around 20:07 HKT — roughly four hours
+after publication — while the AQHI feed kept committing normally.
+
+**Root cause:** `update-tctrack.yml` and `update-aqhi.yml` were two
+independent cron workflows, each ending in a bare `git push`. When their
+(GitHub-delayed) runs interleaved, whichever workflow pushed second was
+rejected as non-fast-forward and the whole run failed, silently discarding
+that cycle`s data until a later run happened to win. GitHub`s routine
+delaying/skipping of scheduled events widened the gaps. The ingest scripts
+themselves were verified healthy against the live HKO/EPD feeds.
+
+**Fix:** both ingests merged into a single serialized workflow,
+`atlas-ingest.yml` (cron `12,42 * * * *`), which cannot race itself; a
+`concurrency` group stops delayed runs from stacking; and the push is now
+rebase-retry (up to 3 attempts), so even a race against a manual push
+recovers instead of failing. One ingest failing no longer blocks the other:
+whatever succeeded is still committed, and the job then fails loudly so the
+Actions email still fires. Commit-only-on-change semantics (generatedAt
+excluded) are unchanged. The two old workflow files are deleted.

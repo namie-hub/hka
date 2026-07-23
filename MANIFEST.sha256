@@ -1,0 +1,31 @@
+# Hong Kong Weather Atlas — deployment record
+# Generated: 2026-07-23 07:33 UTC (23 Jul 2026 HKT)
+# Matches the deployed repo (namie-hub/hka) as of workflow setup completion:
+#   codex-edition corridor page + all three GitHub Actions workflows.
+# hk_tctrack.js and hk_aqhi.js are GENERATED files now owned by Actions;
+# the copies here were freshly regenerated at packaging time and will
+# diverge from the repo as Actions commits new data. That is expected.
+#
+# sha256  path
+56b96ce572f3029205bf8231356116242707244da35d05a8af20ff8c2bd43cab  README.md
+579fc0cbb0121dba3f0f29691af9134d704edb1336f080ad056bc01fd8b1cfb0  REVISION_NOTES.md
+d58547b3d69c95e2e6b434d6649dd279b1a4db340040513c134e87d2bd24b824  hk_aqhi.js
+e3a0ec4887e5d0ffe94c42e3213ca1d5f1c6cb59817a2df60b1ab61e71ba336e  hk_geo.js
+59452409e4a61f90dc0ead7ca8f675eaf634cbd0e61ed8bce4bc4cf8dc8f537f  hk_pressure.js
+ccb92e0e04bc19c8b885aecad3491c5118f78fecd72fa3babdcb87edcefa50ab  hk_stations.js
+faa5ddc791b6b6f9dbcb90f3689ea481b3f5b415a7fc0ed6f06305c33d7fc761  hk_storm_corridor.html
+1cd2073cf2b2dddcaf0cce424c0ecf5e7b1ca2d9571b0ef5c36bd1a43191ecdd  hk_tctrack.js
+15c7c54215e738acebccf9c733dd64bbd6f71c21eb2cb42e121e7276d81b654a  index.html
+bfaeee3dcb4f7cdd8342f5d13d4f61812ef55dc56ab7c35320d8ec6752c83a67  github/workflows/feed-check.yml
+b6ae3820198871539a77d2cfe572830fd85156e42a39fe438b0a7a456eb5959e  github/workflows/update-aqhi.yml
+edfd2595843936f3ad20bb7a221e1f7126567ce95c4a83af692756689c1dc98b  github/workflows/update-tctrack.yml
+cc6b692dfd23afc93549ae5adb48555037ea872f10d0fa645008499e3b8124c5  scripts/check_feeds.js
+08b5ce10b6859631f2dbbec4ea5f2cb64911b93e089aab69bcc331d6b6e5ccb4  scripts/ingest_aqhi.py
+c4ec626108b098d93db0b87da7d3eb29587e10a2fffc3dd534eead698c8d0b97  scripts/ingest_tctrack.py
+a7837102824184820dfa198d1ebcd109ff6d0ff9a2672a074b9a1b4d147d04c6  vendor/leaflet/leaflet.css
+db49d009c841f5ca34a888c96511ae936fd9f5533e90d8b2c4d57596f4e5641a  vendor/leaflet/leaflet.js
+066daca850d8ffbef007af00b06eac0015728dee279c51f3cb6c716df7c42edf  vendor/leaflet/images/layers-2x.png
+1dbbe9d028e292f36fcba8f8b3a28d5e8932754fc2215b9ac69e4cdecf5107c6  vendor/leaflet/images/layers.png
+00179c4c1ee830d3a108412ae0d294f55776cfeb085c60129a39aa6fc4ae2528  vendor/leaflet/images/marker-icon-2x.png
+574c3a5cca85f4114085b6841596d62f00d7c892c7b03f28cbfa301deb1dc437  vendor/leaflet/images/marker-icon.png
+264f5c640339f042dd729062cfc04c17f8ea0f29882b538e3848ed8f10edb4da  vendor/leaflet/images/marker-shadow.png

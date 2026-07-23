@@ -1,0 +1,87 @@
+name: HK Atlas data ingest
+
+# ONE workflow for all Actions-side feed ingests (TC track + AQHI),
+# REPLACING update-tctrack.yml and update-aqhi.yml. Why merged: the two
+# separate cron workflows raced each other on `git push` — one checked out,
+# the other pushed in the gap, and the first push was then rejected as
+# non-fast-forward, failing the whole run and discarding that cycle's data.
+# On 23 Jul 2026 this (compounded by GitHub's routine delaying/skipping of
+# scheduled runs under load) left hk_tctrack.js carrying the 16:00 HKT
+# bulletin four hours after publication while AQHI kept committing.
+# A single serialized job cannot race itself; the concurrency group stops
+# delayed runs from stacking; and the rebase-retry push survives any
+# remaining race (e.g. a manual push).
+#
+# Cadence: :12 and :42 every hour. EPD publishes AQHI hourly at :30 (:42 is
+# safely past it, as before). HKO TC bulletins land on :00/:30 grid times
+# (3-hourly for near systems, 6-hourly at 04/10/16/22 HKT for distant ones),
+# so :12/:42 keeps worst-case pickup lag around 12 minutes. Halving the
+# number of scheduled events also lowers exposure to GitHub's cron skipping.
+#
+# Commit-only-on-change (generatedAt excluded from the diff) keeps quiet
+# periods commit-free, exactly as before.
+on:
+  schedule:
+    - cron: "12,42 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Delayed cron runs can queue up; never let two ingests run concurrently.
+concurrency:
+  group: atlas-ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run all ingests (each fail-loudly, none blocks the others)
+        id: run
+        run: |
+          fails=""
+          python3 scripts/ingest_tctrack.py || fails="$fails tctrack"
+          python3 scripts/ingest_aqhi.py   || fails="$fails aqhi"
+          echo "fails=${fails# }" >> "$GITHUB_OUTPUT"
+
+      - name: Commit whatever changed (ignoring generatedAt), rebase-retry push
+        run: |
+          strip() { grep -v '"generatedAt"' "$1" || true; }
+          changed=""
+          for f in hk_tctrack.js hk_aqhi.js; do
+            if git show "HEAD:$f" > /tmp/old.js 2>/dev/null \
+               && diff <(strip /tmp/old.js) <(strip "$f") > /dev/null; then
+              echo "$f unchanged."
+            else
+              changed="$changed $f"
+            fi
+          done
+          if [ -z "$changed" ]; then
+            echo "No data changed — no commit."
+            exit 0
+          fi
+          git config user.name "atlas-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add $changed
+          git commit -m "Atlas ingest:$changed"
+          # A push can still lose a race (e.g. against a manual push from
+          # another machine). Rebase our data commit onto origin and retry.
+          ok=""
+          for i in 1 2 3; do
+            if git push; then ok=1; break; fi
+            echo "push rejected (attempt $i) — rebasing onto origin/main"
+            git pull --rebase origin main
+          done
+          [ -n "$ok" ] || { echo "push failed after 3 attempts" >&2; exit 1; }
+
+      - name: Fail loudly if any ingest failed
+        run: |
+          if [ -n "${{ steps.run.outputs.fails }}" ]; then
+            echo "FAILED ingests: ${{ steps.run.outputs.fails }}" >&2
+            echo "The previous data files remain in place; the page's ageing" >&2
+            echo "generatedAt makes the outage visible. This failure is the alert." >&2
+            exit 1
+          fi
