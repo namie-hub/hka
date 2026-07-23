@@ -11,6 +11,10 @@ This revision improves the storm-corridor experience without changing its data s
 - Increased important mobile navigation targets.
 - Standardized the outlook provenance label as “OFFICIAL · HKO”.
 - Added Hong Kong date labels beside HKO and JMA forecast-track dots.
+- Reduced permanent date labels to the first, closest-approach, and final forecast points to prevent map crowding.
+- Identified the lead-time assessment as an Atlas interpretation rather than an HKO-issued confidence.
+- Added accessible names and expanded/collapsed states to the map layer and legend controls.
+- Reworked storm-card markup for valid, keyboard-friendly button content.
 
 The outlook explicitly avoids treating centre-line distance as an impact or warning threshold. HKO remains the sole warning authority for Hong Kong.
 

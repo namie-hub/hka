@@ -96,8 +96,10 @@ main{display:flex;height:calc(100vh - 96px);height:calc(100dvh - 96px);min-heigh
 .sysCard{display:flex;width:100%;text-align:left;font:inherit;color:inherit;background:#fff;gap:.6rem;border:1px solid var(--line);border-radius:8px;padding:.5rem .6rem;margin:.45rem 0;cursor:pointer}
 .sysCard:hover{border-color:var(--teal)}
 .sysIcon{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.15rem;color:#fff;flex:none}
-.sysCard h4{margin:0 0 .15rem;font-size:.9rem}
-.sysCard p{margin:0;font-size:.78rem;color:var(--muted);line-height:1.4}
+.sysBody{display:block}
+.sysTitle{display:block;margin:0 0 .15rem;font-size:.9rem;font-weight:700}
+.sysTitle small{font-weight:400}
+.sysText{display:block;margin:0;font-size:.78rem;color:var(--muted);line-height:1.4}
 .brief li{font-size:.84rem;margin:.25rem 0;line-height:1.45}
 .brief ul{padding-left:1.1rem;margin:.3rem 0}
 
@@ -158,7 +160,7 @@ footer{padding:.45rem .9rem .8rem;background:var(--panel);font-size:.7rem;color:
   <div id="mapWrap">
     <div id="map"></div>
     <div id="layersBox">
-      <h4>Layers <button id="layersToggle" title="Collapse">−</button></h4>
+      <h4>Layers <button id="layersToggle" type="button" aria-controls="layersBody" aria-expanded="true" aria-label="Collapse map layers">−</button></h4>
       <div id="layersBody">
       <label><input type="checkbox" id="lyTracks" checked> JMA cyclone tracks</label>
       <label><input type="checkbox" id="lyHko" checked> HKO forecast track</label>
@@ -170,7 +172,7 @@ footer{padding:.45rem .9rem .8rem;background:var(--panel);font-size:.7rem;color:
     </div>
     <div id="satTime"></div>
     <div id="legend">
-      <h4><span>Legend</span><button id="legendToggle">−</button></h4>
+      <h4><span>Legend</span><button id="legendToggle" type="button" aria-controls="legendBody" aria-expanded="true" aria-label="Collapse map legend">−</button></h4>
       <div id="legendBody">
         <div class="row"><span class="sw" style="background:#4A5A63"></span>observed track (JMA analysis)</div>
         <div class="row"><span class="sw" style="background:#B03A2E"></span>forecast track (JMA RSMC)</div>
@@ -256,6 +258,16 @@ const mapDate=v=>{try{return new Date(v).toLocaleDateString("en-GB",{timeZone:"A
 const km=(a,b)=>{const R=6371,r=x=>x*Math.PI/180,dLa=r(b[0]-a[0]),dLo=r(b[1]-a[1]);
   const h=Math.sin(dLa/2)**2+Math.cos(r(a[0]))*Math.cos(r(b[0]))*Math.sin(dLo/2)**2;
   return Math.round(2*R*Math.asin(Math.sqrt(h)));};
+function keyDateIndexes(points,getCenter){
+  if(!points.length) return new Set();
+  let nearest=0,nearestKm=Infinity;
+  points.forEach((p,i)=>{
+    const c=getCenter(p); if(!c) return;
+    const d=km([HK_REFERENCE.lat,HK_REFERENCE.lon],c);
+    if(d<nearestKm){nearestKm=d;nearest=i;}
+  });
+  return new Set([0,nearest,points.length-1]);
+}
 /* Invisible ~40px tap target under a small dot, bound to the same popup.
  * The visible dots are 10-16px — precise enough for a mouse, hopeless for
  * a fingertip. SVG pointer-events:auto counts fill regions whenever fill
@@ -411,9 +423,10 @@ function drawSystem(sys){
     L.circle(sys.gale.center,{radius:sys.gale.radius,color:"#C77E1F",weight:1.5,fill:false,opacity:.8})
       .bindTooltip("Gale-force wind area (30 kt+), JMA analysis",{sticky:true}).addTo(gTracks);
   const fPts=sys.forecasts.filter(f=>f.center);
+  const dateIndexes=keyDateIndexes(fPts,f=>f.center);
   if(sys.center&&fPts.length)
     L.polyline([sys.center,...fPts.map(f=>f.center)],{interactive:false,color:"#B03A2E",weight:2,dashArray:"6,5",opacity:.9}).addTo(gTracks);
-  fPts.forEach(f=>{
+  fPts.forEach((f,i)=>{
     if(f.probabilityCircle&&f.probabilityCircle.radius)
       /* interactive:false — a filled interior with no popup otherwise sits above
        * every dot inside it and swallows their taps into nothing */
@@ -423,7 +436,7 @@ function drawSystem(sys){
     tapHalo(f.center,jmaPop,gTracks);
     L.circleMarker(f.center,{radius:4,color:"#B03A2E",weight:1.5,fillColor:"#fff",fillOpacity:1})
       .bindPopup(jmaPop).addTo(gTracks);
-    if(f.validtime&&f.validtime.UTC)
+    if(dateIndexes.has(i)&&f.validtime&&f.validtime.UTC)
       L.marker(f.center,{interactive:false,icon:L.divIcon({className:"trackDate jma",
         html:mapDate(f.validtime.UTC),iconAnchor:[-7,16]})}).addTo(gTracks);
   });
@@ -463,11 +476,11 @@ function renderSystems(){
       const d=sys.center?km([HK_REFERENCE.lat,HK_REFERENCE.lon],sys.center):null;
       const near=nearestApproach(sys);
       return `<button type="button" class="sysCard" onclick="focusSystem('${sys.id}')" aria-label="Focus map on ${esc(sys.name)}">
-        <div class="sysIcon" style="background:${st.c}">🌀</div>
-        <div><h4>${esc(sys.name)} <small>(${st.lbl}${sys.number?", #"+esc(sys.number):""})</small></h4>
-        <p>${d!=null?`Now ${d} km from Hong Kong.`:""}
+        <span class="sysIcon" style="background:${st.c}">🌀</span>
+        <span class="sysBody"><span class="sysTitle">${esc(sys.name)} <small>(${st.lbl}${sys.number?", #"+esc(sys.number):""})</small></span>
+        <span class="sysText">${d!=null?`Now ${d} km from Hong Kong.`:""}
         ${near?` Nearest forecast point: <b>${near.d} km</b> at +${near.h} h — the centre may pass anywhere in that point's probability circle.`:""}
-        <br><small>JMA issue ${HKT(sys.issue)} HKT</small></p></div></button>`;
+        <br><small>JMA issue ${HKT(sys.issue)} HKT</small></span></span></button>`;
     }).join("");
     if(bad.length) html+=`<div class="mutedTxt">Could not load detail for: ${bad.map(b=>esc(b.id)).join(", ")} (list entry shown by JMA, detail fetch failed).</div>`;
   }
@@ -627,7 +640,8 @@ async function loadHkoTrack(){
       .addTo(gHko);
     /* Waypoints (the points HKO labels with time/intensity, every 24 h). */
     const wps=s.forecast.filter(p=>p.time);
-    wps.forEach(p=>{
+    const dateIndexes=keyDateIndexes(wps,p=>[p.lat,p.lon]);
+    wps.forEach((p,i)=>{
       const d=km([HK_REFERENCE.lat,HK_REFERENCE.lon],[p.lat,p.lon]);
       const wpPop=`<b>${esc(hkoName(s))}</b> · ${esc(p.intensity||"?")}<br>
           HKO forecast +${p.i} h · valid ${HKT(p.time)} HKT<br>
@@ -638,7 +652,7 @@ async function loadHkoTrack(){
       L.circleMarker([p.lat,p.lon],{renderer:hkoRenderer,radius:5,color:HKO_BLUE,weight:1.5,fillColor:hkoFill(p.intensity),fillOpacity:1})
         .bindPopup(wpPop)
         .addTo(gHko);
-      if(p.time)
+      if(dateIndexes.has(i)&&p.time)
         L.marker([p.lat,p.lon],{interactive:false,icon:L.divIcon({className:"trackDate hko",
           html:mapDate(p.time),iconAnchor:[-7,-8]})}).addTo(gHko);
     });
@@ -667,12 +681,12 @@ async function loadHkoTrack(){
     const peak=wps.reduce((a,p)=>{
       const v=parseInt(p.wind)||0; return v>(a.v||0)?{v,intensity:p.intensity,h:p.i}:a;},{});
     cards+=`<button type="button" class="sysCard" onclick="focusHko('${esc(s.id)}')" aria-label="Focus map on ${esc(hkoName(s))}">
-      <div class="sysIcon" style="background:${HKO_BLUE}">🌀</div>
-      <div><h4>${esc(s.nameEn)}${s.nameZh&&s.nameZh!==s.nameEn?` <small>${esc(s.nameZh)}</small>`:""} <small>(#${esc(s.id)})</small></h4>
-      <p>${esc(ana.intensity||"?")}${ana.wind?`, ${esc(ana.wind)}`:""} — now ${dNow} km from Hong Kong.
+      <span class="sysIcon" style="background:${HKO_BLUE}">🌀</span>
+      <span class="sysBody"><span class="sysTitle">${esc(s.nameEn)}${s.nameZh&&s.nameZh!==s.nameEn?` <small>${esc(s.nameZh)}</small>`:""} <small>(#${esc(s.id)})</small></span>
+      <span class="sysText">${esc(ana.intensity||"?")}${ana.wind?`, ${esc(ana.wind)}`:""} — now ${dNow} km from Hong Kong.
       ${near?` Nearest forecast point: <b>${near.d} km</b> at +${near.h} h (hourly-interpolated track).`:""}
       ${peak.v?` Forecast peak: ${esc(peak.intensity)} (${peak.v} km/h) at +${peak.h} h.`:""}
-      <br><small>HKO bulletin ${HKT(s.bulletinTime)} HKT · ${esc(ingestNote)}</small></p></div></button>`;
+      <br><small>HKO bulletin ${HKT(s.bulletinTime)} HKT · ${esc(ingestNote)}</small></span></span></button>`;
   }
   el.innerHTML=head+cards+`<div class="mutedTxt" style="margin-top:.4rem">Shown beside JMA's track for the same
     system — two official agencies, one storm, compare freely. The HKO dataset carries no probability circles,
@@ -752,7 +766,7 @@ function renderImpactSummary(){
   el.innerHTML=head+`<div class="impactLead"><b>${esc(hkoName(s))}</b> is ${km([HK_REFERENCE.lat,HK_REFERENCE.lon],[ana.lat,ana.lon])} km from Hong Kong. The centre-line forecast currently comes closest ${valid}.</div>
     <div class="impactGrid">
       <div class="impactItem"><span>Closest centre-line</span><b>${near?`${lo}–${hi} km`:"—"}</b></div>
-      <div class="impactItem"><span>Forecast confidence</span><b>${confidence}</b></div>
+      <div class="impactItem"><span>Forecast horizon <em class="provTag prov-third" style="font-style:normal;margin-left:.2rem">Atlas interpretation</em></span><b>${confidence}</b></div>
       <div class="impactItem"><span>Hong Kong signal</span><b>${esc(signal)}</b></div>
       <div class="impactItem"><span>HKO update</span><b>${HKT(s.bulletinTime)} HKT</b></div>
     </div>${others}<div class="mutedTxt" style="margin-top:.45rem">Centre-line distance is not an impact or warning
@@ -900,9 +914,9 @@ $("#lyIso").onchange=e=>{ if(e.target.checked){gIso.addTo(map);if(!isoField)load
 $("#lyGeo").onchange=e=>e.target.checked?gGeo.addTo(map):map.removeLayer(gGeo);
 $("#lySat").onchange=e=>{ if(e.target.checked){gSat.addTo(map);$("#satTime").style.display="block";if(!satLayer)loadSat();} else {map.removeLayer(gSat);$("#satTime").style.display="none";} };
 $("#lyRadar").onchange=e=>{ if(e.target.checked){gRadar.addTo(map);if(!radarLayer)loadRadar();} else map.removeLayer(gRadar); };
-function setLegend(open){const b=$("#legendBody");b.style.display=open?"":"none";$("#legendToggle").textContent=open?"−":"+";}
+function setLegend(open){const b=$("#legendBody"),t=$("#legendToggle");b.style.display=open?"":"none";t.textContent=open?"−":"+";t.setAttribute("aria-expanded",String(open));t.setAttribute("aria-label",(open?"Collapse":"Expand")+" map legend");}
 $("#legendToggle").onclick=()=>setLegend($("#legendBody").style.display==="none");
-function setLayers(open){const b=$("#layersBody");b.style.display=open?"":"none";$("#layersToggle").textContent=open?"−":"+";}
+function setLayers(open){const b=$("#layersBody"),t=$("#layersToggle");b.style.display=open?"":"none";t.textContent=open?"−":"+";t.setAttribute("aria-expanded",String(open));t.setAttribute("aria-label",(open?"Collapse":"Expand")+" map layers");}
 $("#layersToggle").onclick=()=>setLayers($("#layersBody").style.display==="none");
 /* On phones both boxes cover too much map — start collapsed. Layer states
  * are unaffected by collapsing; only the switches are hidden. */
