@@ -132,7 +132,7 @@ footer{padding:.45rem .9rem .8rem;background:var(--panel);font-size:.7rem;color:
  * the SVG overlay pane — so without this rule every chip parked beside a
  * dot silently eats the taps aimed at that dot. Found via a real-device
  * screenshot; synthetic click tests with a 1px pointer never hit it. */
-.trackDate,.tcTag{pointer-events:none}
+.trackDate,.tcTag,.seaLabel{pointer-events:none}
 .trackDate{background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:4px;
   box-shadow:0 1px 2px rgba(24,46,56,.14);font-size:.62rem;font-weight:700;line-height:1;
   padding:.16rem .25rem;white-space:nowrap;text-align:center;color:var(--ink)}
@@ -256,14 +256,24 @@ const mapDate=v=>{try{return new Date(v).toLocaleDateString("en-GB",{timeZone:"A
 const km=(a,b)=>{const R=6371,r=x=>x*Math.PI/180,dLa=r(b[0]-a[0]),dLo=r(b[1]-a[1]);
   const h=Math.sin(dLa/2)**2+Math.cos(r(a[0]))*Math.cos(r(b[0]))*Math.sin(dLo/2)**2;
   return Math.round(2*R*Math.asin(Math.sqrt(h)));};
-/* Invisible ~30px tap target under a small dot, bound to the same popup.
+/* Invisible ~40px tap target under a small dot, bound to the same popup.
  * The visible dots are 10-16px — precise enough for a mouse, hopeless for
  * a fingertip. SVG pointer-events:auto counts fill regions whenever fill
  * is set, regardless of fillOpacity, so a fully transparent filled circle
- * is a working touch target. Added BEFORE the visible dot so the dot
- * paints on top. */
+ * is a working touch target.
+ * CRITICAL: halos live in their OWN pane just below the overlay pane.
+ * Both agencies track the same storm, so their halos overlap heavily and
+ * whichever agency draws last would otherwise sit on top of the OTHER
+ * agency's visible dots — tapping a blue HKO dot then opened the JMA
+ * popup (caught on a real device; reproduced with a same-storm stub).
+ * With halos beneath the overlay pane, a visible dot always beats every
+ * halo, and halos only catch taps that would otherwise hit empty map. */
+/* On touch devices, hover tooltips can't fire but interactive lines still
+ * swallow taps — a tap landing on the dashed track line went nowhere. Lines
+ * keep their tooltips for mouse users and yield to taps for touch users. */
+const COARSE_POINTER=window.matchMedia&&window.matchMedia("(pointer:coarse)").matches;
 const tapHalo=(latlng,popupHtml,group)=>
-  L.circleMarker(latlng,{radius:20,stroke:false,fill:true,fillOpacity:0}).bindPopup(popupHtml).addTo(group);
+  L.circleMarker(latlng,{renderer:haloRenderer,radius:20,stroke:false,fill:true,fillOpacity:0}).bindPopup(popupHtml).addTo(group);
 
 const SOURCES={
   jma:{label:"JMA typhoon",ttl:7*3600e3},
@@ -290,6 +300,17 @@ async function getJson(url){const r=await fetch(url,{cache:"no-store"});if(!r.ok
 
 /* ================= map & static geography ================= */
 const map=L.map("map").fitBounds(CORRIDOR_BOUNDS);
+/* Halo pane: z-index 399 sits just under the overlay pane (400) where all
+ * visible track dots render — see tapHalo() for why this ordering matters. */
+map.createPane("tapHalos").style.zIndex=399;
+const haloRenderer=L.svg({pane:"tapHalos"});
+/* HKO's track gets its own pane just above the default overlay pane: the
+ * two agencies' markers physically overlap when both track one storm, and
+ * whoever draws last would win the tap. HKO is the warning authority for
+ * Hong Kong, so where the dots overlap, the blue dot wins — deterministic,
+ * regardless of which feed loads last. */
+map.createPane("hkoTrack").style.zIndex=401;
+const hkoRenderer=L.svg({pane:"hkoTrack"});
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:12,
   attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(map);
 const gTracks=L.layerGroup().addTo(map), gHko=L.layerGroup().addTo(map),
@@ -385,16 +406,18 @@ function buildSystem(tc,fc,spec){
 function drawSystem(sys){
   const st=catOf(sys.category);
   const obs=[...(sys.track.preTyphoon||[]),...(sys.track.typhoon||[])];
-  if(obs.length>1) L.polyline(obs,{color:"#4A5A63",weight:2,opacity:.85}).addTo(gTracks);
+  if(obs.length>1) L.polyline(obs,{interactive:false,color:"#4A5A63",weight:2,opacity:.85}).addTo(gTracks);
   if(sys.gale&&sys.gale.center)
     L.circle(sys.gale.center,{radius:sys.gale.radius,color:"#C77E1F",weight:1.5,fill:false,opacity:.8})
       .bindTooltip("Gale-force wind area (30 kt+), JMA analysis",{sticky:true}).addTo(gTracks);
   const fPts=sys.forecasts.filter(f=>f.center);
   if(sys.center&&fPts.length)
-    L.polyline([sys.center,...fPts.map(f=>f.center)],{color:"#B03A2E",weight:2,dashArray:"6,5",opacity:.9}).addTo(gTracks);
+    L.polyline([sys.center,...fPts.map(f=>f.center)],{interactive:false,color:"#B03A2E",weight:2,dashArray:"6,5",opacity:.9}).addTo(gTracks);
   fPts.forEach(f=>{
     if(f.probabilityCircle&&f.probabilityCircle.radius)
-      L.circle(f.center,{radius:f.probabilityCircle.radius,color:"#B03A2E",weight:1,dashArray:"3,4",fill:true,fillOpacity:.04}).addTo(gTracks);
+      /* interactive:false — a filled interior with no popup otherwise sits above
+       * every dot inside it and swallows their taps into nothing */
+      L.circle(f.center,{radius:f.probabilityCircle.radius,color:"#B03A2E",weight:1,dashArray:"3,4",fill:true,fillOpacity:.04,interactive:false}).addTo(gTracks);
     const sp=sys.specByH[f.advancedHours]||{};
     const jmaPop=popupFor(sys,f,sp,false);
     tapHalo(f.center,jmaPop,gTracks);
@@ -596,10 +619,10 @@ async function loadHkoTrack(){
     const ana=s.analysis;
     /* Past track: solid line, matching the JMA observed-track treatment. */
     if(s.past.length>1)
-      L.polyline(s.past.map(p=>[p.lat,p.lon]),{color:HKO_BLUE,weight:2,opacity:.85}).addTo(gHko);
+      L.polyline(s.past.map(p=>[p.lat,p.lon]),{renderer:hkoRenderer,interactive:false,color:HKO_BLUE,weight:2,opacity:.85}).addTo(gHko);
     /* Forecast: dashed line through all hourly-interpolated points. */
     const line=[[ana.lat,ana.lon],...s.forecast.map(p=>[p.lat,p.lon])];
-    L.polyline(line,{color:HKO_BLUE,weight:2.5,dashArray:"7,5",opacity:.9})
+    L.polyline(line,{renderer:hkoRenderer,interactive:!COARSE_POINTER,color:HKO_BLUE,weight:2.5,dashArray:"7,5",opacity:.9})
       .bindTooltip("HKO forecast track — hourly-interpolated; uncertainty not shown in this dataset",{sticky:true})
       .addTo(gHko);
     /* Waypoints (the points HKO labels with time/intensity, every 24 h). */
@@ -612,7 +635,7 @@ async function loadHkoTrack(){
           <b>${d} km from Hong Kong</b> (forecast centre)<br>
           <small>HKO bulletin ${HKT(s.bulletinTime)} HKT · ${esc(ingestNote)}</small>`;
       tapHalo([p.lat,p.lon],wpPop,gHko);
-      L.circleMarker([p.lat,p.lon],{radius:5,color:HKO_BLUE,weight:1.5,fillColor:hkoFill(p.intensity),fillOpacity:1})
+      L.circleMarker([p.lat,p.lon],{renderer:hkoRenderer,radius:5,color:HKO_BLUE,weight:1.5,fillColor:hkoFill(p.intensity),fillOpacity:1})
         .bindPopup(wpPop)
         .addTo(gHko);
       if(p.time)
@@ -628,7 +651,7 @@ async function loadHkoTrack(){
         <b>${dNow} km from Hong Kong</b><br>
         <small>HKO bulletin ${HKT(s.bulletinTime)} HKT · ${esc(ingestNote)}</small>`;
     tapHalo([ana.lat,ana.lon],anaPop,gHko);
-    L.circleMarker([ana.lat,ana.lon],{radius:8,color:HKO_BLUE,weight:2.5,fillColor:hkoFill(ana.intensity),fillOpacity:.95})
+    L.circleMarker([ana.lat,ana.lon],{renderer:hkoRenderer,radius:8,color:HKO_BLUE,weight:2.5,fillColor:hkoFill(ana.intensity),fillOpacity:.95})
       .bindPopup(anaPop)
       .addTo(gHko);
     L.marker([ana.lat,ana.lon],{interactive:false,icon:L.divIcon({className:"tcTag",
