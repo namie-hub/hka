@@ -79,7 +79,13 @@ async function fetchWithRetry(url, tries = 3, raw = false) {
   let lastErr;
   for (let i = 0; i < tries; i++) {
     try {
-      const r = await fetch(url, { headers: { "User-Agent": "hk-weather-atlas-feed-check" } });
+      // 20 s per attempt: a feed that answers slowly or not at all becomes a
+      // reported FAIL instead of stalling the whole job (fetch has no default
+      // timeout; one dead feed could otherwise hang for many minutes).
+      const r = await fetch(url, {
+        headers: { "User-Agent": "hk-weather-atlas-feed-check" },
+        signal: AbortSignal.timeout(20000)
+      });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return raw ? await r.text() : await r.json();
     } catch (e) {
