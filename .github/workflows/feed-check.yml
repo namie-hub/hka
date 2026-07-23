@@ -8,6 +8,10 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    # Backstop: check_feeds.js now times out each request after 20 s, so a
+    # full run of 12 feeds with retries is bounded at a few minutes. If the
+    # job ever exceeds 10, something is wrong — kill it and email.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Validate all upstream feeds
