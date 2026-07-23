@@ -1,0 +1,30 @@
+name: AQHI ingest
+
+on:
+  schedule:
+    - cron: "42 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch EPD AQHI and regenerate hk_aqhi.js
+        run: python3 scripts/ingest_aqhi.py
+      - name: Commit only if data changed (ignoring generatedAt)
+        run: |
+          strip() { grep -v '"generatedAt"' "$1" || true; }
+          if git show HEAD:hk_aqhi.js > /tmp/old.js 2>/dev/null \
+             && diff <(strip /tmp/old.js) <(strip hk_aqhi.js) > /dev/null; then
+            echo "AQHI unchanged — no commit."
+            exit 0
+          fi
+          git config user.name "atlas-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add hk_aqhi.js
+          git commit -m "AQHI update"
+          git push
