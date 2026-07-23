@@ -9,6 +9,7 @@
 <script src="hk_stations.js"></script>
 <script src="hk_geo.js"></script>
 <script src="hk_pressure.js"></script>
+<script src="hk_tctrack.js"></script>
 <style>
 .isoLabel{background:#fff;border:1px solid #24425F;border-radius:5px;
   padding:1px 6px;font-size:12px;font-weight:700;color:#24425F;
@@ -83,10 +84,16 @@ main{display:flex;height:calc(100vh - 96px);height:calc(100dvh - 96px);min-heigh
 
 #panel{width:392px;max-width:48vw;background:var(--panel);border-left:1px solid var(--line);overflow-y:auto;padding:.8rem .85rem;flex:none}
 .card{border:1px solid var(--line);border-radius:var(--radius);padding:.65rem .75rem;margin-bottom:.7rem}
+.impactCard{background:linear-gradient(135deg,#eef7f8,#fff);border-color:#9fcbd0}
+.impactGrid{display:grid;grid-template-columns:1fr 1fr;gap:.45rem;margin-top:.35rem}
+.impactItem{background:#fff;border:1px solid var(--line);border-radius:7px;padding:.45rem .5rem}
+.impactItem span{display:block;color:var(--muted);font-size:.66rem;text-transform:uppercase;letter-spacing:.06em}
+.impactItem b{display:block;margin-top:.12rem;font-size:.86rem;line-height:1.3}
+.impactLead{font-size:.9rem;line-height:1.45;margin:.1rem 0 .45rem}
 .card h3{margin:0 0 .45rem;font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
   display:flex;align-items:center;justify-content:space-between;gap:.5rem}
 .mutedTxt{color:var(--muted);font-size:.8rem;line-height:1.5}
-.sysCard{display:flex;gap:.6rem;border:1px solid var(--line);border-radius:8px;padding:.5rem .6rem;margin:.45rem 0;cursor:pointer}
+.sysCard{display:flex;width:100%;text-align:left;font:inherit;color:inherit;background:#fff;gap:.6rem;border:1px solid var(--line);border-radius:8px;padding:.5rem .6rem;margin:.45rem 0;cursor:pointer}
 .sysCard:hover{border-color:var(--teal)}
 .sysIcon{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.15rem;color:#fff;flex:none}
 .sysCard h4{margin:0 0 .15rem;font-size:.9rem}
@@ -106,10 +113,12 @@ footer{padding:.45rem .9rem .8rem;background:var(--panel);font-size:.7rem;color:
   #clock{order:3;width:100%;font-size:.74rem}
   .pageSwitch{margin-left:0;gap:.3rem}
   .pageSwitch a,.pageSwitch button{padding:.27rem .55rem}
+  .pageSwitch a,.pageSwitch button{min-height:40px;display:inline-flex;align-items:center}
   #panelToggle{display:inline-flex;align-items:center;gap:.28rem}
   main{flex-direction:column;height:auto}
   #mapWrap{height:58vh;min-height:340px}
   #panel{width:100%;max-width:none;border-left:none;border-top:1px solid var(--line)}
+  .impactGrid{grid-template-columns:1fr 1fr}
   main.sidebar-collapsed #mapWrap{flex:none;height:70dvh;min-height:390px} /* flex:none lets the JS-measured height win over flex-basis; 70dvh is the no-JS fallback */
   main.sidebar-collapsed #panel{display:none}
   #legend{max-width:210px}
@@ -117,6 +126,11 @@ footer{padding:.45rem .9rem .8rem;background:var(--panel);font-size:.7rem;color:
 .leaflet-container{font:inherit}
 .seaLabel{background:none;border:none;box-shadow:none;color:#5E7681;font-style:italic;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
 .tcTag{background:#fff;border:1px solid var(--line);border-radius:6px;box-shadow:var(--shadow);font-size:.72rem;font-weight:700;padding:.05rem .3rem;white-space:nowrap}
+.trackDate{background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:4px;
+  box-shadow:0 1px 2px rgba(24,46,56,.14);font-size:.62rem;font-weight:700;line-height:1;
+  padding:.16rem .25rem;white-space:nowrap;text-align:center;color:var(--ink)}
+.trackDate.hko{border-color:#7f94b5;color:#2C4A7C}
+.trackDate.jma{border-color:#d39a91;color:#8d2e25}
 </style>
 </head>
 <body>
@@ -140,6 +154,7 @@ footer{padding:.45rem .9rem .8rem;background:var(--panel);font-size:.7rem;color:
       <h4>Layers <button id="layersToggle" title="Collapse">−</button></h4>
       <div id="layersBody">
       <label><input type="checkbox" id="lyTracks" checked> JMA cyclone tracks</label>
+      <label><input type="checkbox" id="lyHko" checked> HKO forecast track</label>
       <label><input type="checkbox" id="lySat"> Himawari infrared</label>
       <label><input type="checkbox" id="lyRadar"> Regional radar</label>
       <label><input type="checkbox" id="lyIso"> Isobars — model <span class="provTag prov-model" style="margin-left:.2rem">Experimental</span></label>
@@ -152,6 +167,15 @@ footer{padding:.45rem .9rem .8rem;background:var(--panel);font-size:.7rem;color:
       <div id="legendBody">
         <div class="row"><span class="sw" style="background:#4A5A63"></span>observed track (JMA analysis)</div>
         <div class="row"><span class="sw" style="background:#B03A2E"></span>forecast track (JMA RSMC)</div>
+        <div class="row"><span class="sw" style="background:#2C4A7C"></span>forecast track (HKO) · dots at 24 h steps</div>
+        <div class="row" title="Fill colours are HKO's own chart palette. Ring stays HKO blue — HKO's Typhoon red is close to JMA's line red, so the ring is what tells the agencies apart.">
+          <span class="sw dot" style="background:#303030;border:2px solid #2C4A7C"></span>
+          <span class="sw dot" style="background:#28911A;border:2px solid #2C4A7C"></span>
+          <span class="sw dot" style="background:#2739C1;border:2px solid #2C4A7C"></span>
+          <span class="sw dot" style="background:#DD4343;border:2px solid #2C4A7C"></span>
+          <span class="sw dot" style="background:#F78BC0;border:2px solid #2C4A7C"></span>
+          <span class="sw dot" style="background:#993392;border:2px solid #2C4A7C"></span>
+          <span>dot fill = HKO intensity (TD→SuperTY), ring = agency</span></div>
         <div class="row"><span class="sw dot" style="background:none;border:2px dashed #B03A2E"></span>70% probability circle</div>
         <div class="row"><span class="sw dot" style="background:none;border:2px solid #C77E1F"></span>gale-force wind area (analysis)</div>
         <div class="row"><span class="sw" style="background:none;border-top:2px dashed #5E7681"></span>PAR boundary · HK distance rings</div>
@@ -163,6 +187,10 @@ footer{padding:.45rem .9rem .8rem;background:var(--panel);font-size:.7rem;color:
   </div>
 
   <aside id="panel">
+    <div class="card impactCard" id="impactCard" aria-live="polite">
+      <h3>Hong Kong outlook <span class="provTag prov-official">Official · HKO</span></h3>
+      <div class="mutedTxt">Preparing the latest cyclone summary…</div>
+    </div>
     <div class="card" id="briefCard">
       <h3>What changed since you last looked <span class="provTag prov-third">This device only</span></h3>
       <div class="mutedTxt">Comparing against your previous visit…</div>
@@ -170,6 +198,14 @@ footer{padding:.45rem .9rem .8rem;background:var(--panel);font-size:.7rem;color:
     <div class="card" id="swtCard">
       <h3>HKO special weather tips <span class="provTag prov-official">Official · HKO</span></h3>
       <div class="mutedTxt">Loading…</div>
+    </div>
+    <div class="card" id="hkoTcCard">
+      <h3>HKO forecast track <span class="provTag prov-official">Official · HKO</span></h3>
+      <div class="mutedTxt">Reading HKO track data…</div>
+    </div>
+    <div class="card" id="spmCard">
+      <h3>Where the cyclone may pass <span class="provTag prov-official">Official · HKO</span></h3>
+      <div class="mutedTxt">Reading HKO track data…</div>
     </div>
     <div class="card" id="systemsCard">
       <h3>Active systems <span class="provTag prov-official">Official · JMA RSMC Tokyo</span></h3>
@@ -196,7 +232,10 @@ footer{padding:.45rem .9rem .8rem;background:var(--panel);font-size:.7rem;color:
 <footer>
   <b>Privacy:</b> this page contacts only data endpoints — www.jma.go.jp (JMA typhoon + Himawari),
   data.weather.gov.hk (HKO warnings), api.open-meteo.com (model isobars), api.rainviewer.com &amp;
-  tilecache.rainviewer.com, tile.openstreetmap.org. Leaflet is bundled locally — no CDN.
+  tilecache.rainviewer.com, tile.openstreetmap.org, www.hko.gov.hk (official TPFM probability
+  imagery — plain images, shown as published). HKO's own TC track (www.weather.gov.hk) is
+  CORS-locked and is contacted only by GitHub Actions, never by your browser — it arrives as the
+  bundled hk_tctrack.js. Leaflet is bundled locally — no CDN.
   No analytics, no cookies, no tracking.
   "What changed" is computed locally in your browser and never leaves this device.
 </footer>
@@ -206,12 +245,14 @@ footer{padding:.45rem .9rem .8rem;background:var(--panel);font-size:.7rem;color:
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const HKT=v=>{try{return new Date(v).toLocaleString("en-GB",{timeZone:"Asia/Hong_Kong",hour12:false,day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});}catch{return "—";}};
+const mapDate=v=>{try{return new Date(v).toLocaleDateString("en-GB",{timeZone:"Asia/Hong_Kong",day:"2-digit",month:"short"});}catch{return "—";}};
 const km=(a,b)=>{const R=6371,r=x=>x*Math.PI/180,dLa=r(b[0]-a[0]),dLo=r(b[1]-a[1]);
   const h=Math.sin(dLa/2)**2+Math.cos(r(a[0]))*Math.cos(r(b[0]))*Math.sin(dLo/2)**2;
   return Math.round(2*R*Math.asin(Math.sqrt(h)));};
 
 const SOURCES={
   jma:{label:"JMA typhoon",ttl:7*3600e3},
+  hkoTc:{label:"HKO TC track",ttl:5*3600e3}, /* 3-hourly product + 30-min ingest + slack */
   iso:{label:"Model pressure",ttl:2*3600e3},
   warn:{label:"HKO warnings",ttl:15*60e3},
   swt:{label:"HKO special tips",ttl:7*3600e3},
@@ -236,7 +277,8 @@ async function getJson(url){const r=await fetch(url,{cache:"no-store"});if(!r.ok
 const map=L.map("map").fitBounds(CORRIDOR_BOUNDS);
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:12,
   attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(map);
-const gTracks=L.layerGroup().addTo(map), gGeo=L.layerGroup().addTo(map),
+const gTracks=L.layerGroup().addTo(map), gHko=L.layerGroup().addTo(map),
+      gGeo=L.layerGroup().addTo(map),
       gSat=L.layerGroup(), gRadar=L.layerGroup(), gIso=L.layerGroup();
 const isoCanvas=L.canvas({padding:0.3});
 let isoField=null, isoLoading=false;
@@ -341,6 +383,9 @@ function drawSystem(sys){
     const sp=sys.specByH[f.advancedHours]||{};
     L.circleMarker(f.center,{radius:4,color:"#B03A2E",weight:1.5,fillColor:"#fff",fillOpacity:1})
       .bindPopup(popupFor(sys,f,sp,false)).addTo(gTracks);
+    if(f.validtime&&f.validtime.UTC)
+      L.marker(f.center,{interactive:false,icon:L.divIcon({className:"trackDate jma",
+        html:mapDate(f.validtime.UTC),iconAnchor:[-7,16]})}).addTo(gTracks);
   });
   if(sys.center){
     const sp=sys.specByH[0]||{};
@@ -375,18 +420,19 @@ function renderSystems(){
       const st=catOf(sys.category);
       const d=sys.center?km([HK_REFERENCE.lat,HK_REFERENCE.lon],sys.center):null;
       const near=nearestApproach(sys);
-      return `<div class="sysCard" onclick="focusSystem('${sys.id}')">
+      return `<button type="button" class="sysCard" onclick="focusSystem('${sys.id}')" aria-label="Focus map on ${esc(sys.name)}">
         <div class="sysIcon" style="background:${st.c}">🌀</div>
         <div><h4>${esc(sys.name)} <small>(${st.lbl}${sys.number?", #"+esc(sys.number):""})</small></h4>
         <p>${d!=null?`Now ${d} km from Hong Kong.`:""}
         ${near?` Nearest forecast point: <b>${near.d} km</b> at +${near.h} h — the centre may pass anywhere in that point's probability circle.`:""}
-        <br><small>JMA issue ${HKT(sys.issue)} HKT</small></p></div></div>`;
+        <br><small>JMA issue ${HKT(sys.issue)} HKT</small></p></div></button>`;
     }).join("");
     if(bad.length) html+=`<div class="mutedTxt">Could not load detail for: ${bad.map(b=>esc(b.id)).join(", ")} (list entry shown by JMA, detail fetch failed).</div>`;
   }
   $("#systemsCard").innerHTML=`<h3>Active systems <span class="provTag prov-official">Official · JMA RSMC Tokyo</span></h3>${html}
-    <div class="mutedTxt" style="margin-top:.4rem">HKO's own TC forecast track is on the roadmap for side-by-side
-    comparison; after each storm, agency tracks will be scored against the final best track — the only truth is what verifies.</div>`;
+    <div class="mutedTxt" style="margin-top:.4rem">HKO's own forecast track is drawn in blue for side-by-side
+    comparison (card above); after each storm, agency tracks will be scored against the final best track — the
+    only truth is what verifies (roadmap).</div>`;
 }
 function nearestApproach(sys){
   let best=null;
@@ -402,11 +448,271 @@ function focusSystem(id){
 }
 window.focusSystem=focusSystem;
 
+/* ================= HKO forecast track =================
+ * HKO's own TC track XML (tc_list.xml + hko_tctrack_{TCID}.xml) carries no
+ * CORS headers on any host that serves it, so it arrives via the AQHI
+ * pattern: GitHub Actions ingests it into hk_tctrack.js every 30 minutes.
+ * The forecast is hourly-interpolated by HKO (Index = hours ahead), with
+ * intensity/wind carried only on the 24-hour waypoints. Note what this
+ * dataset does NOT include: probability circles — track uncertainty is not
+ * shown for the HKO line; JMA's circles alongside give the scale of it. */
+const HKO_BLUE="#2C4A7C";
+/* HKO's own intensity palette, sampled pixel-exact from the legend of the
+ * live nwp_{tcid}.png fixed-area chart (tc_fixarea.htm). Marker rule:
+ * RING = agency (deep blue for every HKO marker), FILL = HKO intensity
+ * colour — the blue line then reads like HKO's own chart. Caveat kept in
+ * the legend: HKO's Typhoon red is close to JMA's line red; the ring is
+ * what keeps the agencies tellable apart. */
+const HKO_INTENSITY_COLORS={
+  "Tropical Depression":"#303030","Tropical Storm":"#28911A",
+  "Severe Tropical Storm":"#2739C1","Typhoon":"#DD4343",
+  "Severe Typhoon":"#F78BC0","Super Typhoon":"#993392",
+  "Low Pressure Area":"#8FE1ED","Extratropical Low":"#E44762"};
+const hkoFill=x=>HKO_INTENSITY_COLORS[x]||"#fff";
+function hkoIntensityShort(x){
+  return {"Tropical Depression":"TD","Tropical Storm":"TS","Severe Tropical Storm":"STS",
+    "Typhoon":"TY","Severe Typhoon":"STY","Super Typhoon":"SuperTY",
+    "Low Pressure Area":"LPA","Extratropical Low":"ExL"}[x]||x||"?";
+}
+/* HKO fills nameEn with the intensity category until a system is named, so
+ * "Tropical Depression · Tropical Storm" popups would read as nonsense.
+ * Detect that case and label such systems by their HKO ID instead. */
+const HKO_CATEGORY_NAMES=["Tropical Depression","Tropical Storm","Severe Tropical Storm",
+  "Typhoon","Severe Typhoon","Super Typhoon","Low Pressure Area","Extratropical Low"];
+const hkoIsUnnamed=s=>HKO_CATEGORY_NAMES.includes(s.nameEn);
+const hkoName=s=>hkoIsUnnamed(s)?`Unnamed system #${s.id}`:s.nameEn;
+
+/* ---- TPFM: HKO's Track Probability Forecast Map ----
+ * The uncertainty product the track XML lacks: probability of the TC
+ * passing within 120 km of each location in the coming 9 days, generated
+ * automatically from EPS ensembles with NO manual adjustment. Shown
+ * AS PUBLISHED (same rule as HKO radar imagery on the Weather page) — the
+ * raster's georeferencing is undocumented, and a slightly mis-registered
+ * probability field warped onto the map would be worse than not showing
+ * it. Plain <img> needs no CORS, and the filename is deterministic
+ * (chance_tcspm_{TCID}_s_black.png), so the URL is built from the ingested
+ * TCID — no fetch, works from file://. The hourly-truncated cache-buster
+ * refetches at most once an hour instead of every 5-minute refresh. */
+function renderSpm(storms,missingFile){
+  const el=$("#spmCard");
+  const head=`<h3>Where the cyclone may pass <span class="provTag prov-official">Official · HKO</span></h3>`;
+  if(missingFile){
+    el.innerHTML=head+`<div class="mutedTxt">Needs hk_tctrack.js (missing — see the card above) to know which
+      systems HKO is tracking.</div>`;
+    return;
+  }
+  if(!storms.length){
+    el.innerHTML=head+`<div class="mutedTxt">No TPFM to show because HKO currently issues no forecast track —
+      a real answer, not a failure. The map appears here within a few hours of HKO's first track for a new system.</div>`;
+    return;
+  }
+  const buster=Math.floor(Date.now()/3600e3);
+  el.innerHTML=head+storms.map(s=>{
+    const url=`https://www.hko.gov.hk/probfcst/chance_tcspm_${encodeURIComponent(s.id)}_s_black.png?${buster}`;
+    return `<div style="margin:.3rem 0 .5rem">
+      ${storms.length>1?`<div style="font-size:.84rem;font-weight:600;margin-bottom:.2rem">${esc(hkoName(s))}</div>`:""}
+      <a href="${url}" target="_blank" rel="noopener" title="Open full-size in a new tab">
+        <img src="${url}" alt="HKO Track Probability Forecast Map for ${esc(hkoName(s))}"
+          style="max-width:100%;border:1px solid var(--line);border-radius:6px;display:block"
+          onerror="this.parentNode.style.display='none';document.getElementById('spmErr_${esc(s.id)}').style.display='block'"></a>
+      <div id="spmErr_${esc(s.id)}" class="mutedTxt" style="display:none">TPFM for ${esc(hkoName(s))} could not be
+        loaded — either HKO has not generated it yet (it appears within a few hours of the first track) or the
+        image endpoint is unreachable. Not the same as "low probability". Check
+        <a href="https://www.hko.gov.hk/en/probfcst/tc_spm.htm" rel="noopener">HKO's TPFM page</a> directly.</div>
+    </div>`;
+  }).join("")+`<div class="mutedTxt">Shown as published by HKO. Colour = probability the cyclone passes within
+    <b>120 km</b> of that location in the coming <b>9 days</b>; reddish high, yellow ≈50%, bluish low. Generated
+    automatically from ensemble (EPS) model data with <b>no manual adjustment</b> — it is not the official
+    forecast track above, and the two can disagree. The image carries HKO's own timestamp and legend.</div>`;
+}
+
+let hkoData=(typeof HK_TCTRACK!=="undefined")?HK_TCTRACK:null;
+async function loadHkoTrack(){
+  /* When hosted (GitHub Pages) the registry file is same-origin, so the
+   * 5-minute refresh can pick up new Actions commits without a reload.
+   * From file:// this fetch fails and the <script>-baked copy stands. */
+  try{
+    const r=await fetch("hk_tctrack.js",{cache:"no-store"});
+    if(r.ok){
+      const m=(await r.text()).match(/\{[\s\S]*\}/);
+      if(m) hkoData=JSON.parse(m[0]);
+    }
+  }catch(e){/* file:// — baked copy is the data */}
+  gHko.clearLayers();
+  const el=$("#hkoTcCard");
+  const head=`<h3>HKO forecast track <span class="provTag prov-official">Official · HKO</span></h3>`;
+  if(!hkoData){
+    /* Missing registry file — the classic silent-failure mode. Name it. */
+    setSrc("hkoTc","down",null,"hk_tctrack.js not loaded — upload it alongside this HTML");
+    el.innerHTML=head+`<div class="mutedTxt"><b>hk_tctrack.js is missing.</b> This page draws HKO's track from a
+      data file regenerated every 30 minutes by GitHub Actions; without it nothing HKO-sourced can be shown.
+      This is a missing file, <b>not</b> "no storm". Upload hk_tctrack.js next to this HTML.</div>`;
+    renderSpm([],true);
+    renderImpactSummary();
+    return;
+  }
+  const gen=hkoData.generatedAt, storms=hkoData.storms||[];
+  const newestBulletin=storms.map(s=>s.bulletinTime).sort().pop()||null;
+  const ingestAge=Date.now()-new Date(gen).getTime();
+  const ingestNote=`ingested ${HKT(gen)} HKT by Actions`;
+  /* Two distinct staleness modes, reported separately:
+   * - bulletin old  -> setSrc ttl handles it (HKO simply hasn't reissued)
+   * - ingest old    -> the Actions pipeline itself has stalled            */
+  const pipelineStalled=ingestAge>3*3600e3;
+  setSrc("hkoTc",pipelineStalled?"stale":"live",newestBulletin||gen,
+    (storms.length?storms.length+" track(s) issued":"no forecast track issued — a real answer, not a failure")
+    +" · "+ingestNote+(pipelineStalled?" · INGEST STALLED — check the Actions workflow":""));
+
+  if(!storms.length){
+    el.innerHTML=head+`<div class="mutedTxt">HKO currently issues <b>no tropical-cyclone forecast track</b> —
+      the ingest ran and this is a real answer (${esc(ingestNote)}). HKO issues its first track within two hours
+      of a TC forming inside 7–36N, 100–140E.</div>`;
+    renderSpm([],false);
+    renderImpactSummary();
+    return;
+  }
+
+  let cards="";
+  for(const s of storms){
+    const ana=s.analysis;
+    /* Past track: solid line, matching the JMA observed-track treatment. */
+    if(s.past.length>1)
+      L.polyline(s.past.map(p=>[p.lat,p.lon]),{color:HKO_BLUE,weight:2,opacity:.85}).addTo(gHko);
+    /* Forecast: dashed line through all hourly-interpolated points. */
+    const line=[[ana.lat,ana.lon],...s.forecast.map(p=>[p.lat,p.lon])];
+    L.polyline(line,{color:HKO_BLUE,weight:2.5,dashArray:"7,5",opacity:.9})
+      .bindTooltip("HKO forecast track — hourly-interpolated; uncertainty not shown in this dataset",{sticky:true})
+      .addTo(gHko);
+    /* Waypoints (the points HKO labels with time/intensity, every 24 h). */
+    const wps=s.forecast.filter(p=>p.time);
+    wps.forEach(p=>{
+      const d=km([HK_REFERENCE.lat,HK_REFERENCE.lon],[p.lat,p.lon]);
+      L.circleMarker([p.lat,p.lon],{radius:5,color:HKO_BLUE,weight:1.5,fillColor:hkoFill(p.intensity),fillOpacity:1})
+        .bindPopup(`<b>${esc(hkoName(s))}</b> · ${esc(p.intensity||"?")}<br>
+          HKO forecast +${p.i} h · valid ${HKT(p.time)} HKT<br>
+          ${p.wind?`Max sustained wind ${esc(p.wind)}<br>`:""}
+          <b>${d} km from Hong Kong</b> (forecast centre)<br>
+          <small>HKO bulletin ${HKT(s.bulletinTime)} HKT · ${esc(ingestNote)}</small>`)
+        .addTo(gHko);
+      if(p.time)
+        L.marker([p.lat,p.lon],{interactive:false,icon:L.divIcon({className:"trackDate hko",
+          html:mapDate(p.time),iconAnchor:[-7,-8]})}).addTo(gHko);
+    });
+    /* Analysis position: prominent marker + tag, "HKO" prefixed so the two
+     * agencies' tags stay tellable-apart when both sit on one storm. */
+    const dNow=km([HK_REFERENCE.lat,HK_REFERENCE.lon],[ana.lat,ana.lon]);
+    L.circleMarker([ana.lat,ana.lon],{radius:8,color:HKO_BLUE,weight:2.5,fillColor:hkoFill(ana.intensity),fillOpacity:.95})
+      .bindPopup(`<b>${esc(hkoName(s))}</b> · ${esc(ana.intensity||"?")}<br>
+        HKO analysis ${HKT(ana.time)} HKT<br>
+        ${ana.wind?`Max sustained wind ${esc(ana.wind)}<br>`:""}
+        <b>${dNow} km from Hong Kong</b><br>
+        <small>HKO bulletin ${HKT(s.bulletinTime)} HKT · ${esc(ingestNote)}</small>`)
+      .addTo(gHko);
+    L.marker([ana.lat,ana.lon],{interactive:false,icon:L.divIcon({className:"tcTag",
+      html:`HKO ${hkoIntensityShort(ana.intensity)}${hkoIsUnnamed(s)?"":" "+esc(s.nameEn)}`,iconAnchor:[-10,16]})}).addTo(gHko);
+
+    /* Nearest approach along ALL hourly points — finer-grained than the JMA
+     * card's sparse forecast points, and labelled as interpolated. */
+    let near=null;
+    s.forecast.forEach(p=>{
+      const d=km([HK_REFERENCE.lat,HK_REFERENCE.lon],[p.lat,p.lon]);
+      if(!near||d<near.d) near={d,h:p.i};
+    });
+    const peak=wps.reduce((a,p)=>{
+      const v=parseInt(p.wind)||0; return v>(a.v||0)?{v,intensity:p.intensity,h:p.i}:a;},{});
+    cards+=`<button type="button" class="sysCard" onclick="focusHko('${esc(s.id)}')" aria-label="Focus map on ${esc(hkoName(s))}">
+      <div class="sysIcon" style="background:${HKO_BLUE}">🌀</div>
+      <div><h4>${esc(s.nameEn)}${s.nameZh&&s.nameZh!==s.nameEn?` <small>${esc(s.nameZh)}</small>`:""} <small>(#${esc(s.id)})</small></h4>
+      <p>${esc(ana.intensity||"?")}${ana.wind?`, ${esc(ana.wind)}`:""} — now ${dNow} km from Hong Kong.
+      ${near?` Nearest forecast point: <b>${near.d} km</b> at +${near.h} h (hourly-interpolated track).`:""}
+      ${peak.v?` Forecast peak: ${esc(peak.intensity)} (${peak.v} km/h) at +${peak.h} h.`:""}
+      <br><small>HKO bulletin ${HKT(s.bulletinTime)} HKT · ${esc(ingestNote)}</small></p></div></button>`;
+  }
+  el.innerHTML=head+cards+`<div class="mutedTxt" style="margin-top:.4rem">Shown beside JMA's track for the same
+    system — two official agencies, one storm, compare freely. The HKO dataset carries no probability circles,
+    so uncertainty is <b>not drawn</b> on the blue line itself; JMA's dashed circles and the “Where the cyclone may pass” card below both give its scale. Track data is
+    refreshed every 30 min by Actions from HKO's 3-hourly bulletins${pipelineStalled?` — <b style="color:var(--down)">but the last ingest was ${Math.round(ingestAge/3600e3)} h ago; treat the blue line as outdated and check HKO directly</b>`:""}.</div>`;
+  renderSpm(storms,false);
+  renderImpactSummary();
+}
+function focusHko(id){
+  const s=(hkoData&&(hkoData.storms||[]).find(x=>x.id===id))||null;
+  if(s&&s.analysis) map.flyTo([s.analysis.lat,s.analysis.lon],6);
+}
+window.focusHko=focusHko;
+
 /* ================= HKO warning ribbon ================= */
 const WARN_COLORS={WRAINA:"#F5A300",WRAINR:"#D63031",WRAINB:"#1B1B1B",TC1:"#7f8c8d",TC3:"#F1C40F",
   TC8NE:"#E67E22",TC8SE:"#E67E22",TC8NW:"#E67E22",TC8SW:"#E67E22",TC9:"#D35400",TC10:"#B03A2E",
   WTS:"#E5A03C",WMSGNL:"#16A085",WFNTSA:"#2980B9",WL:"#8E5B3A",WHOT:"#D63031",WCOLD:"#2C4A7C"};
-let warnCodes=[];
+/* Three states, kept distinct on purpose: undefined = feed not yet answered
+ * this session, null = feed unreachable, array = a real answer (possibly
+ * empty). The outlook card must never show "no signal" before the feed has
+ * actually said so. */
+let warnCodes;
+function tcSignalName(code){
+  const m={TC1:"Standby No. 1",TC3:"Strong Wind No. 3",TC8NE:"No. 8 (NE gales)",TC8SE:"No. 8 (SE gales)",
+    TC8NW:"No. 8 (NW gales)",TC8SW:"No. 8 (SW gales)",TC9:"Increasing Gale No. 9",TC10:"Hurricane No. 10"};
+  return m[code]||code;
+}
+function renderImpactSummary(){
+  const el=$("#impactCard");
+  const head=`<h3>Hong Kong outlook <span class="provTag prov-official">Official · HKO</span></h3>`;
+  /* Failure states first, and honestly: a missing data file is NOT "no
+   * storm", and a stalled ingest is NOT a current picture. The headline
+   * card is where a false all-clear would do the most damage. */
+  if(!hkoData){
+    el.innerHTML=head+`<div class="impactLead"><b>Track data unavailable</b> — hk_tctrack.js is missing.</div>
+      <div class="mutedTxt">This is a missing file, <b>not</b> an all-clear. See the HKO forecast track card below,
+      and check <a href="https://www.hko.gov.hk/en/informtc/tcMain.htm" rel="noopener">HKO directly</a>.</div>`;
+    return;
+  }
+  const storms=hkoData.storms||[];
+  const ingestAge=Date.now()-new Date(hkoData.generatedAt).getTime();
+  const stalled=ingestAge>3*3600e3;
+  const staleLine=stalled?`<div class="mutedTxt" style="margin-top:.35rem;color:var(--down)"><b>Caution:</b> the
+    track ingest last ran ${Math.round(ingestAge/3600e3)} h ago — everything above may be outdated. Check HKO directly.</div>`:"";
+  if(!storms.length){
+    el.innerHTML=head+`<div class="impactLead"><b>No HKO tropical-cyclone forecast track is currently issued.</b></div>
+      <div class="mutedTxt">This is not a guarantee of settled weather. Check the warning ribbon and HKO special weather tips.</div>${staleLine}`;
+    return;
+  }
+  /* Multiple systems: lead with the one whose centre-line comes closest to
+   * Hong Kong, and say the others exist rather than hiding them. */
+  const ranked=storms.map(s=>{
+    let near=null;
+    (s.forecast||[]).forEach(p=>{const d=km([HK_REFERENCE.lat,HK_REFERENCE.lon],[p.lat,p.lon]);if(!near||d<near.d)near={d,h:p.i,time:p.time};});
+    return {s,near};
+  }).sort((a,b)=>((a.near&&a.near.d)??Infinity)-((b.near&&b.near.d)??Infinity));
+  const {s,near}=ranked[0], ana=s.analysis;
+  const others=ranked.length>1?`<div class="mutedTxt" style="margin-top:.35rem">Plus ${ranked.length-1} other
+    system(s) HKO is tracking — see the forecast track card below. This summary follows the system whose
+    centre-line comes closest to Hong Kong.</div>`:"";
+  const lo=near?Math.max(0,Math.floor((near.d-25)/50)*50):null;
+  const hi=near?Math.ceil((near.d+25)/50)*50:null;
+  /* Hourly forecast points carry no timestamp, but Index is hours after the
+   * analysis time, so the valid time is exactly computable. */
+  let validTs=near&&near.time?near.time:null;
+  if(!validTs&&near&&ana&&ana.time){
+    const t=new Date(ana.time).getTime();
+    if(!Number.isNaN(t)) validTs=new Date(t+near.h*3600e3).toISOString();
+  }
+  const valid=validTs?`around ${HKT(validTs)} HKT`:near?`in about ${near.h} h`:"—";
+  const tcSignals=Array.isArray(warnCodes)?warnCodes.filter(c=>String(c).startsWith("TC")):[];
+  const signal=warnCodes===undefined?"Checking…"
+    :warnCodes===null?"Warning feed unavailable"
+    :(tcSignals.length?tcSignals.map(tcSignalName).join(", "):"No TC signal in force");
+  const confidence=!near?"Not available":near.h<=48?"Medium — near term":near.h<=96?"Low — track may shift":"Very low — long range";
+  el.innerHTML=head+`<div class="impactLead"><b>${esc(hkoName(s))}</b> is ${km([HK_REFERENCE.lat,HK_REFERENCE.lon],[ana.lat,ana.lon])} km from Hong Kong. The centre-line forecast currently comes closest ${valid}.</div>
+    <div class="impactGrid">
+      <div class="impactItem"><span>Closest centre-line</span><b>${near?`${lo}–${hi} km`:"—"}</b></div>
+      <div class="impactItem"><span>Forecast confidence</span><b>${confidence}</b></div>
+      <div class="impactItem"><span>Hong Kong signal</span><b>${esc(signal)}</b></div>
+      <div class="impactItem"><span>HKO update</span><b>${HKT(s.bulletinTime)} HKT</b></div>
+    </div>${others}<div class="mutedTxt" style="margin-top:.45rem">Centre-line distance is not an impact or warning
+    threshold, and the range is deliberately rounded. The confidence label is this Atlas's lead-time rule of thumb
+    (forecast track error grows with lead time), <b>not</b> an HKO-issued confidence. Consult HKO for official warnings.</div>${staleLine}`;
+}
 async function loadWarnings(){
   const rib=$("#warnRibbon");
   try{
@@ -419,10 +725,12 @@ async function loadWarnings(){
       ?list.map(w=>`<span class="warnChip" style="background:${WARN_COLORS[w.code]||"#5E7681"}">⚠ ${esc(w.name)}</span>`).join("")
        +`<span class="none">HKO official — see the Weather page for full statements</span>`
       :`<span class="none">No official HKO warning in force — confirmed live just now.</span>`;
+    renderImpactSummary();
   }catch(e){
     warnCodes=null;
     setSrc("warn","down",null,String(e));
     rib.innerHTML=`<span class="none" style="color:var(--down)">⚠ HKO warning feed unreachable — not an all-clear. Check HKO directly.</span>`;
+    renderImpactSummary();
   }
 }
 
@@ -541,6 +849,7 @@ async function loadSwt(){
 
 /* ================= layer toggles & refresh ================= */
 $("#lyTracks").onchange=e=>e.target.checked?gTracks.addTo(map):map.removeLayer(gTracks);
+$("#lyHko").onchange=e=>e.target.checked?gHko.addTo(map):map.removeLayer(gHko);
 $("#lyIso").onchange=e=>{ if(e.target.checked){gIso.addTo(map);if(!isoField)loadIsobars();} else map.removeLayer(gIso); };
 $("#lyGeo").onchange=e=>e.target.checked?gGeo.addTo(map):map.removeLayer(gGeo);
 $("#lySat").onchange=e=>{ if(e.target.checked){gSat.addTo(map);$("#satTime").style.display="block";if(!satLayer)loadSat();} else {map.removeLayer(gSat);$("#satTime").style.display="none";} };
@@ -554,7 +863,7 @@ $("#layersToggle").onclick=()=>setLayers($("#layersBody").style.display==="none"
 if(window.matchMedia("(max-width:760px)").matches){ setLegend(false); setLayers(false); }
 
 async function refreshAll(){
-  await Promise.allSettled([loadWarnings(),loadSwt(),loadCyclones()]);
+  await Promise.allSettled([loadWarnings(),loadSwt(),loadCyclones(),loadHkoTrack()]);
   if(satLayer) loadSat();
   if(radarLayer) loadRadar();
   if(map.hasLayer(gIso)) loadIsobars();

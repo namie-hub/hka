@@ -61,19 +61,27 @@ const FEEDS = [
     validate: t => typeof t === "string" && t.includes("<item>") && t.includes("General Stations")
   },
   {
+    id: "hko-tctrack-list",
+    url: "https://www.weather.gov.hk/wxinfo/currwx/tc_list.xml",
+    raw: true, // XML; no CORS headers on any host — that's why ingest_tctrack.py exists
+    validate: t => typeof t === "string" && t.includes("TropicalCycloneList")
+    // an empty list (possibly self-closing <TropicalCycloneList/>) is valid:
+    // no forecast track issued
+  },
+  {
     id: "rainviewer-maps",
     url: "https://api.rainviewer.com/public/weather-maps.json",
     validate: d => Array.isArray(d?.radar?.past) && d.radar.past.length > 0
   }
 ];
 
-async function fetchWithRetry(url, tries = 3) {
+async function fetchWithRetry(url, tries = 3, raw = false) {
   let lastErr;
   for (let i = 0; i < tries; i++) {
     try {
       const r = await fetch(url, { headers: { "User-Agent": "hk-weather-atlas-feed-check" } });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return arguments[0].includes("aqhi_ind_rss") ? await r.text() : await r.json();
+      return raw ? await r.text() : await r.json();
     } catch (e) {
       lastErr = e;
       await new Promise(res => setTimeout(res, 1500 * (i + 1)));
@@ -86,7 +94,7 @@ async function fetchWithRetry(url, tries = 3) {
   let failures = 0;
   for (const feed of FEEDS) {
     try {
-      const data = await fetchWithRetry(feed.url);
+      const data = await fetchWithRetry(feed.url, 3, feed.raw === true);
       if (!feed.validate(data)) throw new Error("payload shape changed — Atlas parser may break");
       console.log(`OK    ${feed.id}`);
     } catch (e) {
