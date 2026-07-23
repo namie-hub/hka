@@ -126,6 +126,13 @@ footer{padding:.45rem .9rem .8rem;background:var(--panel);font-size:.7rem;color:
 .leaflet-container{font:inherit}
 .seaLabel{background:none;border:none;box-shadow:none;color:#5E7681;font-style:italic;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
 .tcTag{background:#fff;border:1px solid var(--line);border-radius:6px;box-shadow:var(--shadow);font-size:.72rem;font-weight:700;padding:.05rem .3rem;white-space:nowrap}
+/* Labels are annotations, not controls. divIcon elements default to
+ * pointer-events:auto even with interactive:false (Leaflet only sets
+ * pointer-events on .leaflet-interactive), and the marker pane sits ABOVE
+ * the SVG overlay pane — so without this rule every chip parked beside a
+ * dot silently eats the taps aimed at that dot. Found via a real-device
+ * screenshot; synthetic click tests with a 1px pointer never hit it. */
+.trackDate,.tcTag{pointer-events:none}
 .trackDate{background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:4px;
   box-shadow:0 1px 2px rgba(24,46,56,.14);font-size:.62rem;font-weight:700;line-height:1;
   padding:.16rem .25rem;white-space:nowrap;text-align:center;color:var(--ink)}
@@ -249,6 +256,14 @@ const mapDate=v=>{try{return new Date(v).toLocaleDateString("en-GB",{timeZone:"A
 const km=(a,b)=>{const R=6371,r=x=>x*Math.PI/180,dLa=r(b[0]-a[0]),dLo=r(b[1]-a[1]);
   const h=Math.sin(dLa/2)**2+Math.cos(r(a[0]))*Math.cos(r(b[0]))*Math.sin(dLo/2)**2;
   return Math.round(2*R*Math.asin(Math.sqrt(h)));};
+/* Invisible ~30px tap target under a small dot, bound to the same popup.
+ * The visible dots are 10-16px — precise enough for a mouse, hopeless for
+ * a fingertip. SVG pointer-events:auto counts fill regions whenever fill
+ * is set, regardless of fillOpacity, so a fully transparent filled circle
+ * is a working touch target. Added BEFORE the visible dot so the dot
+ * paints on top. */
+const tapHalo=(latlng,popupHtml,group)=>
+  L.circleMarker(latlng,{radius:20,stroke:false,fill:true,fillOpacity:0}).bindPopup(popupHtml).addTo(group);
 
 const SOURCES={
   jma:{label:"JMA typhoon",ttl:7*3600e3},
@@ -381,16 +396,20 @@ function drawSystem(sys){
     if(f.probabilityCircle&&f.probabilityCircle.radius)
       L.circle(f.center,{radius:f.probabilityCircle.radius,color:"#B03A2E",weight:1,dashArray:"3,4",fill:true,fillOpacity:.04}).addTo(gTracks);
     const sp=sys.specByH[f.advancedHours]||{};
+    const jmaPop=popupFor(sys,f,sp,false);
+    tapHalo(f.center,jmaPop,gTracks);
     L.circleMarker(f.center,{radius:4,color:"#B03A2E",weight:1.5,fillColor:"#fff",fillOpacity:1})
-      .bindPopup(popupFor(sys,f,sp,false)).addTo(gTracks);
+      .bindPopup(jmaPop).addTo(gTracks);
     if(f.validtime&&f.validtime.UTC)
       L.marker(f.center,{interactive:false,icon:L.divIcon({className:"trackDate jma",
         html:mapDate(f.validtime.UTC),iconAnchor:[-7,16]})}).addTo(gTracks);
   });
   if(sys.center){
     const sp=sys.specByH[0]||{};
+    const anaPop=popupFor(sys,sys.analysis,sp,true);
+    tapHalo(sys.center,anaPop,gTracks);
     L.circleMarker(sys.center,{radius:9,color:"#fff",weight:2,fillColor:st.c,fillOpacity:.95})
-      .bindPopup(popupFor(sys,sys.analysis,sp,true)).addTo(gTracks);
+      .bindPopup(anaPop).addTo(gTracks);
     L.marker(sys.center,{interactive:false,icon:L.divIcon({className:"tcTag",
       html:`${st.s} ${esc(sys.name)}`,iconAnchor:[-10,-8]})}).addTo(gTracks);
   }
@@ -587,12 +606,14 @@ async function loadHkoTrack(){
     const wps=s.forecast.filter(p=>p.time);
     wps.forEach(p=>{
       const d=km([HK_REFERENCE.lat,HK_REFERENCE.lon],[p.lat,p.lon]);
-      L.circleMarker([p.lat,p.lon],{radius:5,color:HKO_BLUE,weight:1.5,fillColor:hkoFill(p.intensity),fillOpacity:1})
-        .bindPopup(`<b>${esc(hkoName(s))}</b> · ${esc(p.intensity||"?")}<br>
+      const wpPop=`<b>${esc(hkoName(s))}</b> · ${esc(p.intensity||"?")}<br>
           HKO forecast +${p.i} h · valid ${HKT(p.time)} HKT<br>
           ${p.wind?`Max sustained wind ${esc(p.wind)}<br>`:""}
           <b>${d} km from Hong Kong</b> (forecast centre)<br>
-          <small>HKO bulletin ${HKT(s.bulletinTime)} HKT · ${esc(ingestNote)}</small>`)
+          <small>HKO bulletin ${HKT(s.bulletinTime)} HKT · ${esc(ingestNote)}</small>`;
+      tapHalo([p.lat,p.lon],wpPop,gHko);
+      L.circleMarker([p.lat,p.lon],{radius:5,color:HKO_BLUE,weight:1.5,fillColor:hkoFill(p.intensity),fillOpacity:1})
+        .bindPopup(wpPop)
         .addTo(gHko);
       if(p.time)
         L.marker([p.lat,p.lon],{interactive:false,icon:L.divIcon({className:"trackDate hko",
@@ -601,12 +622,14 @@ async function loadHkoTrack(){
     /* Analysis position: prominent marker + tag, "HKO" prefixed so the two
      * agencies' tags stay tellable-apart when both sit on one storm. */
     const dNow=km([HK_REFERENCE.lat,HK_REFERENCE.lon],[ana.lat,ana.lon]);
-    L.circleMarker([ana.lat,ana.lon],{radius:8,color:HKO_BLUE,weight:2.5,fillColor:hkoFill(ana.intensity),fillOpacity:.95})
-      .bindPopup(`<b>${esc(hkoName(s))}</b> · ${esc(ana.intensity||"?")}<br>
+    const anaPop=`<b>${esc(hkoName(s))}</b> · ${esc(ana.intensity||"?")}<br>
         HKO analysis ${HKT(ana.time)} HKT<br>
         ${ana.wind?`Max sustained wind ${esc(ana.wind)}<br>`:""}
         <b>${dNow} km from Hong Kong</b><br>
-        <small>HKO bulletin ${HKT(s.bulletinTime)} HKT · ${esc(ingestNote)}</small>`)
+        <small>HKO bulletin ${HKT(s.bulletinTime)} HKT · ${esc(ingestNote)}</small>`;
+    tapHalo([ana.lat,ana.lon],anaPop,gHko);
+    L.circleMarker([ana.lat,ana.lon],{radius:8,color:HKO_BLUE,weight:2.5,fillColor:hkoFill(ana.intensity),fillOpacity:.95})
+      .bindPopup(anaPop)
       .addTo(gHko);
     L.marker([ana.lat,ana.lon],{interactive:false,icon:L.divIcon({className:"tcTag",
       html:`HKO ${hkoIntensityShort(ana.intensity)}${hkoIsUnnamed(s)?"":" "+esc(s.nameEn)}`,iconAnchor:[-10,16]})}).addTo(gHko);
