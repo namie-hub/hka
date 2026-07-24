@@ -52,6 +52,32 @@ def fetch(url: str) -> bytes:
     return urllib.request.urlopen(req, timeout=30).read()
 
 
+def fetch_valid_xml(url: str, tries: int = 3, delay_s: int = 30) -> bytes:
+    """Fetch XML and gate on strict well-formedness, retrying on parse failures; returns raw bytes.
+
+    Why: on 24 Jul 2026 HKO served hko_tctrack_2617.xml with two bulletins
+    line-interleaved (concurrent-writer corruption on their side) for 20+
+    minutes. Such files are unrepairable-with-confidence, but a retry with a
+    cache-busting query param can catch the next clean write landing mid-run
+    and rides out transient torn writes. If every attempt is corrupt, we
+    fail loudly exactly as before — never publish a guess.
+    """
+    import time, random
+    last_err = None
+    for i in range(tries):
+        u = url + (("&" if "?" in url else "?") + f"cb={random.randrange(10**9)}" if i else "")
+        try:
+            raw = fetch(u)
+            ET.fromstring(raw)  # strict well-formedness gate only
+            return raw
+        except ET.ParseError as e:
+            last_err = e
+            print(f"parse attempt {i+1}/{tries} failed: {e}", file=sys.stderr)
+            if i < tries - 1:
+                time.sleep(delay_s)
+    raise last_err
+
+
 def parse_deg(txt: str, kind: str) -> float:
     """'15.00N' -> 15.0 ; '130.20E' -> 130.2. S/W become negative."""
     txt = (txt or "").strip()
@@ -109,7 +135,7 @@ def parse_track(xml_bytes: bytes, tcid: str) -> dict:
 
 
 def main() -> int:
-    list_xml = ET.fromstring(fetch(LIST_URL))
+    list_xml = ET.fromstring(fetch_valid_xml(LIST_URL))
     if list_xml.tag != "TropicalCycloneList":
         print(f"FAIL: unexpected list root {list_xml.tag!r}", file=sys.stderr)
         return 1
@@ -122,7 +148,7 @@ def main() -> int:
             print(f"FAIL: list entry missing ID or URL: {ET.tostring(tc)[:120]!r}", file=sys.stderr)
             return 1
         url = url.replace("http://", "https://", 1)  # list still gives http://
-        track = parse_track(fetch(url), tcid)
+        track = parse_track(fetch_valid_xml(url), tcid)
         storms.append({
             "id": tcid,
             "nameEn": (tc.findtext("TropicalCycloneEnglishName") or "").strip(),
