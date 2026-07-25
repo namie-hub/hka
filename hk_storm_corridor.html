@@ -208,6 +208,10 @@ footer{padding:.45rem .9rem .8rem;background:var(--panel);font-size:.7rem;color:
       <h3>HKO special weather tips <span class="provTag prov-official">Official · HKO</span></h3>
       <div class="mutedTxt">Loading…</div>
     </div>
+    <div class="card" id="tcbCard">
+      <h3>HKO TC warning bulletin <span class="provTag prov-official">Official · HKO</span></h3>
+      <div class="mutedTxt">Loading…</div>
+    </div>
     <div class="card" id="hkoTcCard">
       <h3>HKO forecast track <span class="provTag prov-official">Official · HKO</span></h3>
       <div class="mutedTxt">Reading HKO track data…</div>
@@ -293,6 +297,7 @@ const SOURCES={
   iso:{label:"Model pressure",ttl:2*3600e3},
   warn:{label:"HKO warnings",ttl:15*60e3},
   swt:{label:"HKO special tips",ttl:7*3600e3},
+  tcb:{label:"HKO TC bulletin",ttl:3*3600e3}, /* hourly-ish product while a signal is in force */
   sat:{label:"Himawari",ttl:40*60e3},
   radar:{label:"RainViewer radar",ttl:30*60e3}
 };
@@ -907,6 +912,31 @@ async function loadSwt(){
   }
 }
 
+/* HKO Tropical Cyclone Warning Bulletin (warningInfo, code WTCSGNL): the
+ * narrative special announcements — storm position and movement, landfall
+ * outlook, signal timing ("will issue No.9 at ..."), and precautionary
+ * notes. warnsum carries only the signal code and swt only pre-warning
+ * tips; this bulletin was the missing middle, found during Noul (No.8,
+ * 25 Jul 2026). Same data.weather.gov.hk host and CORS as the other two.
+ * An empty details list / no WTCSGNL entry is a REAL "none in force". */
+async function loadTcBulletin(){
+  const el=$("#tcbCard");
+  const head=`<h3>HKO TC warning bulletin <span class="provTag prov-official">Official · HKO</span></h3>`;
+  try{
+    const d=await getJson("https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warningInfo&lang=en");
+    const tcs=((d&&d.details)||[]).filter(x=>x&&x.warningStatementCode==="WTCSGNL"&&Array.isArray(x.contents)&&x.contents.length);
+    const newest=tcs.map(x=>x.updateTime).sort().pop()||null;
+    setSrc("tcb","live",newest,tcs.length?"bulletin in force":"none in force");
+    el.innerHTML=head+(tcs.length
+      ?tcs.map(x=>`<div class="mutedTxt" style="white-space:pre-line;color:var(--ink);font-size:.84rem;border-left:3px solid var(--teal);padding-left:.55rem">${x.contents.map(esc).join("\n\n")}</div>
+        <div class="mutedTxt">Issued ${HKT(x.updateTime)} HKT</div>`).join("")
+      :`<div class="mutedTxt">No tropical cyclone warning bulletin in force — confirmed live from HKO.</div>`);
+  }catch(e){
+    setSrc("tcb","down",null,String(e));
+    el.innerHTML=head+`<div class="mutedTxt">HKO bulletin feed unreachable at last refresh — not the same as "no bulletin in force".</div>`;
+  }
+}
+
 /* ================= layer toggles & refresh ================= */
 $("#lyTracks").onchange=e=>e.target.checked?gTracks.addTo(map):map.removeLayer(gTracks);
 $("#lyHko").onchange=e=>e.target.checked?gHko.addTo(map):map.removeLayer(gHko);
@@ -923,7 +953,7 @@ $("#layersToggle").onclick=()=>setLayers($("#layersBody").style.display==="none"
 if(window.matchMedia("(max-width:760px)").matches){ setLegend(false); setLayers(false); }
 
 async function refreshAll(){
-  await Promise.allSettled([loadWarnings(),loadSwt(),loadCyclones(),loadHkoTrack()]);
+  await Promise.allSettled([loadWarnings(),loadSwt(),loadTcBulletin(),loadCyclones(),loadHkoTrack()]);
   if(satLayer) loadSat();
   if(radarLayer) loadRadar();
   if(map.hasLayer(gIso)) loadIsobars();
