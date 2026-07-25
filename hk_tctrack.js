@@ -5,14 +5,14 @@
  * The page shows bulletinTime and generatedAt separately: staleness is
  * always visible, never hidden. */
 const HK_TCTRACK = {
-  "generatedAt": "2026-07-25T04:42:14+00:00",
+  "generatedAt": "2026-07-25T05:16:57+00:00",
   "source": "HKO tc_list.xml + hko_tctrack_{TCID}.xml on www.weather.gov.hk (no CORS headers; ingested every 30 min by GitHub Actions)",
   "storms": [
     {
       "id": "2617",
       "nameEn": "NOUL",
       "nameZh": "紅霞",
-      "bulletinTime": "2026-07-25T12:35:43+08:00",
+      "bulletinTime": "2026-07-25T13:00:23+08:00",
       "analysis": {
         "lat": 21.3,
         "lon": 116.9,
