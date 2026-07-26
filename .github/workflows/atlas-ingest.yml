@@ -77,11 +77,34 @@ jobs:
           done
           [ -n "$ok" ] || { echo "push failed after 3 attempts" >&2; exit 1; }
 
-      - name: Fail loudly if any ingest failed
+      - name: Escalate only sustained ingest failures
+        # A leg failing while its last committed data is still fresh is a
+        # transient upstream hiccup (HKO/EPD blips constantly around storm
+        # transitions) — log it, stay green, no email. Only a leg that fails
+        # while its data has aged past 3 h — the same stall threshold the
+        # page itself displays — goes red and emails. Added 26 Jul 2026
+        # after transient TC-leg blips during Noul's wind-down emailed on
+        # every self-healing failure.
         run: |
-          if [ -n "${{ steps.run.outputs.fails }}" ]; then
-            echo "FAILED ingests: ${{ steps.run.outputs.fails }}" >&2
-            echo "The previous data files remain in place; the page's ageing" >&2
-            echo "generatedAt makes the outage visible. This failure is the alert." >&2
-            exit 1
-          fi
+          fails="${{ steps.run.outputs.fails }}"
+          [ -z "$fails" ] && { echo "all ingests OK"; exit 0; }
+          now=$(date +%s); esc=0
+          for leg in $fails; do
+            case "$leg" in
+              tctrack) f=hk_tctrack.js;;
+              aqhi)    f=hk_aqhi.js;;
+              *)       f="";;
+            esac
+            g=$(grep -o "\"generatedAt\": \"[^\"]*\"" "$f" 2>/dev/null | head -1 | cut -d"\"" -f4)
+            if [ -z "$g" ]; then
+              echo "SUSTAINED: $leg failed and no committed data exists" >&2; esc=1; continue
+            fi
+            age=$(( now - $(date -d "$g" +%s) ))
+            if [ "$age" -gt 10800 ]; then
+              echo "SUSTAINED FAILURE: $leg — committed data ${age}s old (>3h). This alert is real." >&2
+              esc=1
+            else
+              echo "transient: $leg failed this run; committed data only ${age}s old — no alert, next run will retry"
+            fi
+          done
+          exit $esc
