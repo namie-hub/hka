@@ -5,20 +5,20 @@
  * The page shows bulletinTime and generatedAt separately: staleness is
  * always visible, never hidden. */
 const HK_TCTRACK = {
-  "generatedAt": "2026-07-26T08:12:15+00:00",
+  "generatedAt": "2026-07-26T10:12:14+00:00",
   "source": "HKO tc_list.xml + hko_tctrack_{TCID}.xml on www.weather.gov.hk (no CORS headers; ingested every 30 min by GitHub Actions)",
   "storms": [
     {
       "id": "2617",
       "nameEn": "NOUL",
       "nameZh": "紅霞",
-      "bulletinTime": "2026-07-26T16:00:22+08:00",
+      "bulletinTime": "2026-07-26T18:00:22+08:00",
       "analysis": {
-        "lat": 23.8,
-        "lon": 114.0,
-        "time": "2026-07-26T08:00:00+00:00",
+        "lat": 24.0,
+        "lon": 113.9,
+        "time": "2026-07-26T10:00:00+00:00",
         "intensity": "Tropical Storm",
-        "wind": "85km/h"
+        "wind": "65km/h"
       },
       "past": [
         {
@@ -225,111 +225,101 @@ const HK_TCTRACK = {
       "forecast": [
         {
           "i": 1,
-          "lat": 23.88,
-          "lon": 113.94
+          "lat": 24.09,
+          "lon": 113.81
         },
         {
           "i": 2,
-          "lat": 23.99,
-          "lon": 113.86
-        },
-        {
-          "i": 3,
-          "lat": 24.13,
-          "lon": 113.77
-        },
-        {
-          "i": 4,
           "lat": 24.3,
           "lon": 113.7
         },
         {
-          "i": 5,
-          "lat": 24.44,
+          "i": 3,
+          "lat": 24.42,
+          "lon": 113.68
+        },
+        {
+          "i": 4,
+          "lat": 24.57,
           "lon": 113.67
         },
         {
-          "i": 6,
-          "lat": 24.59,
+          "i": 5,
+          "lat": 24.74,
           "lon": 113.66
         },
         {
-          "i": 7,
-          "lat": 24.76,
-          "lon": 113.65
-        },
-        {
-          "i": 8,
+          "i": 6,
           "lat": 24.93,
           "lon": 113.64
         },
         {
-          "i": 9,
-          "lat": 25.12,
+          "i": 7,
+          "lat": 25.11,
           "lon": 113.63
         },
         {
-          "i": 10,
+          "i": 8,
           "lat": 25.3,
           "lon": 113.6
         },
         {
-          "i": 11,
+          "i": 9,
           "lat": 25.5,
           "lon": 113.56
         },
         {
-          "i": 12,
+          "i": 10,
           "lat": 25.71,
           "lon": 113.52
         },
         {
-          "i": 13,
+          "i": 11,
           "lat": 25.93,
           "lon": 113.47
         },
         {
-          "i": 14,
+          "i": 12,
           "lat": 26.14,
           "lon": 113.41
         },
         {
-          "i": 15,
+          "i": 13,
           "lat": 26.33,
           "lon": 113.36
         },
         {
-          "i": 16,
+          "i": 14,
           "lat": 26.5,
           "lon": 113.3
         },
         {
-          "i": 17,
+          "i": 15,
           "lat": 26.63,
           "lon": 113.24
         },
         {
-          "i": 18,
+          "i": 16,
           "lat": 26.74,
           "lon": 113.17
         },
         {
-          "i": 19,
+          "i": 17,
           "lat": 26.84,
           "lon": 113.09
         },
         {
-          "i": 20,
+          "i": 18,
           "lat": 26.92,
           "lon": 113.02
         },
         {
-          "i": 21,
+          "i": 19,
           "lat": 27.01,
           "lon": 112.96
         },
         {
-          "i": 22,
+          "i": 20,
           "lat": 27.1,
           "lon": 112.9,
           "time": "2026-07-27T06:00:00+00:00",
@@ -337,32 +327,32 @@ const HK_TCTRACK = {
           "wind": "45km/h"
         },
         {
-          "i": 23,
+          "i": 21,
           "lat": 27.21,
           "lon": 112.85
         },
         {
-          "i": 24,
+          "i": 22,
           "lat": 27.32,
           "lon": 112.81
         },
         {
-          "i": 25,
+          "i": 23,
           "lat": 27.44,
           "lon": 112.78
         },
         {
-          "i": 26,
+          "i": 24,
           "lat": 27.54,
           "lon": 112.74
         },
         {
-          "i": 27,
+          "i": 25,
           "lat": 27.63,
           "lon": 112.72
         },
         {
-          "i": 28,
+          "i": 26,
           "lat": 27.7,
           "lon": 112.7,
           "time": "2026-07-27T12:00:00+00:00",
