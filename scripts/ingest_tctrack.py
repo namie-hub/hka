@@ -125,7 +125,15 @@ def parse_track(xml_bytes: bytes, tcid: str) -> dict:
     forecast = [point(e, want_index=True) for e in wr.findall("ForecastInformation")]
     forecast.sort(key=lambda p: p.get("i", 0))
     if not forecast:
-        raise ValueError(f"no forecast points for TC {tcid} — format may have changed")
+        # HKO stops issuing forecast points once a system degenerates to a
+        # Low Pressure Area / Extratropical Low: final bulletins are track
+        # history only (measured on Noul #2617, 27 Jul 2026 — 28 past pts,
+        # 1 analysis "Low Pressure Area", 0 forecasts). Accept that terminal
+        # state; for anything still classed as a live TC, an empty forecast
+        # remains a format-change tripwire and we fail loudly.
+        intensity = point(ana_el, want_index=False).get("intensity", "")
+        if intensity not in ("Low Pressure Area", "Extratropical Low"):
+            raise ValueError(f"no forecast points for TC {tcid} — format may have changed")
     return {
         "bulletinTime": bulletin,
         "analysis": point(ana_el, want_index=False),
