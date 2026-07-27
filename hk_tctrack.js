@@ -5,20 +5,20 @@
  * The page shows bulletinTime and generatedAt separately: staleness is
  * always visible, never hidden. */
 const HK_TCTRACK = {
-  "generatedAt": "2026-07-26T20:12:14+00:00",
+  "generatedAt": "2026-07-27T07:42:14+00:00",
   "source": "HKO tc_list.xml + hko_tctrack_{TCID}.xml on www.weather.gov.hk (no CORS headers; ingested every 30 min by GitHub Actions)",
   "storms": [
     {
       "id": "2617",
       "nameEn": "NOUL",
       "nameZh": "紅霞",
-      "bulletinTime": "2026-07-27T04:08:36+08:00",
+      "bulletinTime": "2026-07-27T11:31:51+08:00",
       "analysis": {
-        "lat": 25.2,
-        "lon": 113.4,
-        "time": "2026-07-26T18:00:00+00:00",
-        "intensity": "Tropical Depression",
-        "wind": "45km/h"
+        "lat": 26.4,
+        "lon": 113.2,
+        "time": "2026-07-27T00:00:00+00:00",
+        "intensity": "Low Pressure Area",
+        "wind": "40km/h"
       },
       "past": [
         {
@@ -236,73 +236,17 @@ const HK_TCTRACK = {
           "time": "2026-07-26T12:00:00+00:00",
           "intensity": "Tropical Depression",
           "wind": "55km/h"
+        },
+        {
+          "i": 28,
+          "lat": 25.2,
+          "lon": 113.4,
+          "time": "2026-07-26T18:00:00+00:00",
+          "intensity": "Tropical Depression",
+          "wind": "45km/h"
         }
       ],
-      "forecast": [
-        {
-          "i": 1,
-          "lat": 25.39,
-          "lon": 113.37
-        },
-        {
-          "i": 2,
-          "lat": 25.65,
-          "lon": 113.33
-        },
-        {
-          "i": 3,
-          "lat": 25.96,
-          "lon": 113.29
-        },
-        {
-          "i": 4,
-          "lat": 26.28,
-          "lon": 113.23
-        },
-        {
-          "i": 5,
-          "lat": 26.57,
-          "lon": 113.17
-        },
-        {
-          "i": 6,
-          "lat": 26.8,
-          "lon": 113.1
-        },
-        {
-          "i": 7,
-          "lat": 26.96,
-          "lon": 113.01
-        },
-        {
-          "i": 8,
-          "lat": 27.1,
-          "lon": 112.9
-        },
-        {
-          "i": 9,
-          "lat": 27.2,
-          "lon": 112.78
-        },
-        {
-          "i": 10,
-          "lat": 27.28,
-          "lon": 112.67
-        },
-        {
-          "i": 11,
-          "lat": 27.35,
-          "lon": 112.57
-        },
-        {
-          "i": 12,
-          "lat": 27.4,
-          "lon": 112.5,
-          "time": "2026-07-27T06:00:00+00:00",
-          "intensity": "Low Pressure Area",
-          "wind": "25km/h"
-        }
-      ]
+      "forecast": []
     }
   ]
 };
