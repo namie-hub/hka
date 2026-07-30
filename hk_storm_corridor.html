@@ -244,7 +244,9 @@ footer{padding:.45rem .9rem .8rem;background:var(--panel);font-size:.7rem;color:
 <div id="sources"></div>
 <footer>
   <b>Privacy:</b> this page contacts only data endpoints — www.jma.go.jp (JMA typhoon + Himawari),
-  data.weather.gov.hk (HKO warnings), api.open-meteo.com (model isobars), api.rainviewer.com &amp;
+  data.weather.gov.hk (HKO warnings), api.open-meteo.com (model isobars), api.github.com (read-only heartbeat of this Atlas's own
+  ingest workflow — run timestamps only, so staleness warnings can tell a quiet feed from a dead
+  pipeline), api.rainviewer.com &amp;
   tilecache.rainviewer.com, tile.openstreetmap.org, www.hko.gov.hk (official TPFM probability
   imagery — plain images, shown as published). HKO's own TC track (www.weather.gov.hk) is
   CORS-locked and is contacted only by GitHub Actions, never by your browser — it arrives as the
@@ -587,6 +589,57 @@ function renderSpm(storms,missingFile){
 }
 
 let hkoData=(typeof HK_TCTRACK!=="undefined")?HK_TCTRACK:null;
+/* ============ Actions pipeline heartbeat (api.github.com) ============
+ * Commit-only-on-change makes a healthy-but-quiet pipeline look identical
+ * to a dead one: generatedAt freezes at the last DATA CHANGE, not the last
+ * RUN. First surfaced 30 Jul 2026 as a false red "ingest last ran 51 h ago"
+ * during the first multi-day no-track spell after deployment — the pipeline
+ * had in fact been green every half hour. The truth about "last ran" lives
+ * only in the Actions run history, so ask it directly: api.github.com is
+ * CORS-open and unauthenticated (60 req/h per visitor IP; one call per load
+ * plus one per 30 min is far inside that). Three states, same convention as
+ * warnCodes: undefined = not yet answered this session, null = unreachable
+ * (offline / rate-limited / file://), object = a real answer.            */
+let pipeHb;
+const PIPE_HB_URL="https://api.github.com/repos/namie-hub/hka/actions/workflows/atlas-ingest.yml/runs?per_page=5";
+function pipeVerdict(dataAgeMs){
+  /* The ONE place allowed to decide what the staleness UI may claim.
+   * ok         -> pipeline green & recent: quiet data is just quiet
+   * checking   -> heartbeat not yet answered; only shown once data is old
+   * unverified -> heartbeat unreachable;    only shown once data is old
+   * stalled    -> last completed run >3 h ago (cron AND the external
+   *               dispatcher dead — a live pipeline can't miss 6 slots)
+   * failed     -> last completed run went red (sustained by definition:
+   *               the workflow only reds on sustained failures)          */
+  const dataOld=dataAgeMs>3*3600e3;
+  if(pipeHb===undefined) return {mode:dataOld?"checking":"ok"};
+  if(pipeHb===null)      return {mode:dataOld?"unverified":"ok"};
+  const runAge=Date.now()-new Date(pipeHb.ranAt).getTime();
+  if(runAge>3*3600e3)               return {mode:"stalled",runAge};
+  if(pipeHb.conclusion!=="success") return {mode:"failed",runAge};
+  return {mode:"ok",runAge};
+}
+function pipeNote(pv){
+  const h=ms=>{const m=Math.round(ms/60e3);return m<90?m+" min":Math.round(ms/3600e3)+" h";};
+  return pv.mode==="ok"?(pv.runAge!==undefined?`pipeline ran ${h(pv.runAge)} ago`:"pipeline assumed healthy")
+    :pv.mode==="checking"?"confirming the ingest pipeline is alive…"
+    :pv.mode==="unverified"?"pipeline liveness unconfirmed (api.github.com unreachable)"
+    :pv.mode==="stalled"?`PIPELINE STALLED — last run ${h(pv.runAge)} ago`
+    :`PIPELINE FAILING — last run ${h(pv.runAge)} ago went red`;
+}
+async function loadPipeHb(){
+  try{
+    const r=await fetch(PIPE_HB_URL,{headers:{Accept:"application/vnd.github+json"}});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const runs=(await r.json()).workflow_runs||[];
+    /* newest completed run that actually ran — a manual cancel is not a
+     * verdict on pipeline health either way */
+    const done=runs.find(x=>x.status==="completed"&&x.conclusion!=="cancelled"&&x.conclusion!=="skipped");
+    pipeHb=done?{ranAt:done.run_started_at,conclusion:done.conclusion}:null;
+  }catch(e){pipeHb=null;}
+  loadHkoTrack();   /* re-render the HKO card, chip and outlook with the verdict */
+}
+
 async function loadHkoTrack(){
   /* When hosted (GitHub Pages) the registry file is same-origin, so the
    * 5-minute refresh can pick up new Actions commits without a reload.
@@ -613,20 +666,26 @@ async function loadHkoTrack(){
   }
   const gen=hkoData.generatedAt, storms=hkoData.storms||[];
   const newestBulletin=storms.map(s=>s.bulletinTime).sort().pop()||null;
-  const ingestAge=Date.now()-new Date(gen).getTime();
-  const ingestNote=`ingested ${HKT(gen)} HKT by Actions`;
-  /* Two distinct staleness modes, reported separately:
-   * - bulletin old  -> setSrc ttl handles it (HKO simply hasn't reissued)
-   * - ingest old    -> the Actions pipeline itself has stalled            */
-  const pipelineStalled=ingestAge>3*3600e3;
-  setSrc("hkoTc",pipelineStalled?"stale":"live",newestBulletin||gen,
+  const dataAge=Date.now()-new Date(gen).getTime();
+  const ingestNote=`data last changed ${HKT(gen)} HKT (Actions commit)`;
+  /* Three distinct staleness modes, reported separately:
+   * - bulletin old -> setSrc ttl handles it (HKO simply hasn't reissued)
+   * - data old     -> normal in quiet spells: under commit-only-on-change
+   *                   generatedAt marks the last data CHANGE, not the last
+   *                   run, so age alone proves nothing about the pipeline
+   * - pipeline dead-> the heartbeat verdict (stalled/failed) — the ONLY
+   *                   signal allowed to claim the ingest itself stopped  */
+  const pv=pipeVerdict(dataAge);
+  const pipeBad=pv.mode==="stalled"||pv.mode==="failed";
+  setSrc("hkoTc",pipeBad?"stale":"live",newestBulletin||gen,
     (storms.length?storms.length+" track(s) issued":"no forecast track issued — a real answer, not a failure")
-    +" · "+ingestNote+(pipelineStalled?" · INGEST STALLED — check the Actions workflow":""));
+    +" · "+ingestNote+" · "+pipeNote(pv));
 
   if(!storms.length){
     el.innerHTML=head+`<div class="mutedTxt">HKO currently issues <b>no tropical-cyclone forecast track</b> —
-      the ingest ran and this is a real answer (${esc(ingestNote)}). HKO issues its first track within two hours
-      of a TC forming inside 7–36N, 100–140E.</div>`;
+      a real answer, not a failure (${esc(ingestNote)} · ${esc(pipeNote(pv))}). HKO issues its first track within two hours
+      of a TC forming inside 7–36N, 100–140E.</div>`+(pipeBad?`<div class="mutedTxt" style="color:var(--down)"><b>Caution:</b>
+      ${esc(pipeNote(pv))} — a track HKO issues now would <b>not</b> appear here. Check HKO directly.</div>`:"");
     renderSpm([],false);
     renderImpactSummary();
     return;
@@ -696,7 +755,8 @@ async function loadHkoTrack(){
   el.innerHTML=head+cards+`<div class="mutedTxt" style="margin-top:.4rem">Shown beside JMA's track for the same
     system — two official agencies, one storm, compare freely. The HKO dataset carries no probability circles,
     so uncertainty is <b>not drawn</b> on the blue line itself; JMA's dashed circles and the “Where the cyclone may pass” card below both give its scale. Track data is
-    refreshed every 30 min by Actions from HKO's 3-hourly bulletins${pipelineStalled?` — <b style="color:var(--down)">but the last ingest was ${Math.round(ingestAge/3600e3)} h ago; treat the blue line as outdated and check HKO directly</b>`:""}.</div>`;
+    refreshed every 30 min by Actions from HKO's 3-hourly bulletins${pipeBad?` — <b style="color:var(--down)">but ${esc(pipeNote(pv))}; treat the blue line as outdated and check HKO directly</b>`
+    :pv.mode==="unverified"?` — data last changed ${Math.round(dataAge/3600e3)} h ago and ${esc(pipeNote(pv))}; check HKO if in doubt`:""}.</div>`;
   renderSpm(storms,false);
   renderImpactSummary();
 }
@@ -733,10 +793,22 @@ function renderImpactSummary(){
     return;
   }
   const storms=hkoData.storms||[];
-  const ingestAge=Date.now()-new Date(hkoData.generatedAt).getTime();
-  const stalled=ingestAge>3*3600e3;
-  const staleLine=stalled?`<div class="mutedTxt" style="margin-top:.35rem;color:var(--down)"><b>Caution:</b> the
-    track ingest last ran ${Math.round(ingestAge/3600e3)} h ago — everything above may be outdated. Check HKO directly.</div>`:"";
+  /* generatedAt = last data CHANGE (commit-only-on-change), not last run.
+   * Old data + green pipeline is calm weather, not an outage — only the
+   * heartbeat may claim the ingest has stopped. */
+  const dataAge=Date.now()-new Date(hkoData.generatedAt).getTime();
+  const pv=pipeVerdict(dataAge);
+  const dataH=Math.round(dataAge/3600e3);
+  const staleLine=
+    pv.mode==="stalled"||pv.mode==="failed"
+      ?`<div class="mutedTxt" style="margin-top:.35rem;color:var(--down)"><b>Caution:</b> ${esc(pipeNote(pv))} —
+    data above last changed ${dataH} h ago and is no longer being refreshed. Check HKO directly.</div>`
+    :pv.mode==="unverified"
+      ?`<div class="mutedTxt" style="margin-top:.35rem;color:var(--stale)"><b>Note:</b> data last changed ${dataH} h ago;
+    ${esc(pipeNote(pv))}. Check HKO directly if a storm may be active.</div>`
+    :pv.mode==="checking"
+      ?`<div class="mutedTxt" style="margin-top:.35rem">Data last changed ${dataH} h ago · ${esc(pipeNote(pv))}</div>`
+      :"";
   if(!storms.length){
     el.innerHTML=head+`<div class="impactLead"><b>No HKO tropical-cyclone forecast track is currently issued.</b></div>
       <div class="mutedTxt">This is not a guarantee of settled weather. Check the warning ribbon and HKO special weather tips.</div>${staleLine}`;
@@ -998,6 +1070,9 @@ panelToggle.addEventListener("click",()=>setPanelCollapsed(!mainEl.classList.con
 setInterval(refreshAll,5*60e3);
 setInterval(()=>{$("#clock").textContent=new Date().toLocaleString("en-GB",{timeZone:"Asia/Hong_Kong",hour12:false,weekday:"short",hour:"2-digit",minute:"2-digit",second:"2-digit"})+" HKT";},1000);
 refreshAll();
+/* Heartbeat after first paint; its resolution re-renders the HKO card.
+ * 30-min re-check matches the ingest cadence — no point asking faster. */
+loadPipeHb();setInterval(loadPipeHb,30*60e3);
 </script>
 </body>
 </html>
