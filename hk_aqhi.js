@@ -2,39 +2,39 @@
  * EPD publishes AQHI hourly; this file is refreshed hourly by Actions.
  * The page shows recordTime so any staleness is visible, never hidden. */
 const HK_AQHI = {
-  "generatedAt": "2026-08-07T09:45:32+00:00",
-  "recordTime": "Fri, 07 Aug 2026 17:30",
+  "generatedAt": "2026-08-07T12:31:42+00:00",
+  "recordTime": "Fri, 07 Aug 2026 20:30",
   "source": "EPD aqhi.gov.hk RSS (CORS-locked; ingested hourly by GitHub Actions)",
   "stations": [
     {
       "name": "Central/Western",
       "type": "general",
-      "aqhi": "5",
+      "aqhi": "4",
       "risk": "Moderate"
     },
     {
       "name": "Southern",
       "type": "general",
-      "aqhi": "4",
-      "risk": "Moderate"
+      "aqhi": "3",
+      "risk": "Low"
     },
     {
       "name": "Eastern",
       "type": "general",
-      "aqhi": "6",
+      "aqhi": "4",
       "risk": "Moderate"
     },
     {
       "name": "Kwun Tong",
       "type": "general",
-      "aqhi": "6",
+      "aqhi": "5",
       "risk": "Moderate"
     },
     {
       "name": "Sham Shui Po",
       "type": "general",
-      "aqhi": "4",
-      "risk": "Moderate"
+      "aqhi": "3",
+      "risk": "Low"
     },
     {
       "name": "Kwai Chung",
@@ -45,14 +45,20 @@ const HK_AQHI = {
     {
       "name": "Tsuen Wan",
       "type": "general",
-      "aqhi": "5",
+      "aqhi": "4",
       "risk": "Moderate"
     },
     {
       "name": "Tseung Kwan O",
       "type": "general",
-      "aqhi": "6",
+      "aqhi": "5",
       "risk": "Moderate"
+    },
+    {
+      "name": "Yuen Long",
+      "type": "general",
+      "aqhi": "7",
+      "risk": "High"
     },
     {
       "name": "Tuen Mun",
@@ -63,37 +69,37 @@ const HK_AQHI = {
     {
       "name": "Tung Chung",
       "type": "general",
-      "aqhi": "4",
+      "aqhi": "5",
       "risk": "Moderate"
     },
     {
       "name": "Sha Tin",
       "type": "general",
-      "aqhi": "5",
+      "aqhi": "4",
       "risk": "Moderate"
     },
     {
       "name": "Tap Mun",
       "type": "general",
-      "aqhi": "6",
+      "aqhi": "5",
       "risk": "Moderate"
     },
     {
       "name": "Causeway Bay",
       "type": "roadside",
-      "aqhi": "5",
+      "aqhi": "4",
       "risk": "Moderate"
     },
     {
       "name": "Central",
       "type": "roadside",
-      "aqhi": "5",
+      "aqhi": "4",
       "risk": "Moderate"
     },
     {
       "name": "Mong Kok",
       "type": "roadside",
-      "aqhi": "5",
+      "aqhi": "4",
       "risk": "Moderate"
     }
   ]
