@@ -2,20 +2,20 @@
  * EPD publishes AQHI hourly; this file is refreshed hourly by Actions.
  * The page shows recordTime so any staleness is visible, never hidden. */
 const HK_AQHI = {
-  "generatedAt": "2026-08-10T14:02:19+00:00",
-  "recordTime": "Mon, 10 Aug 2026 21:30",
+  "generatedAt": "2026-08-10T15:12:02+00:00",
+  "recordTime": "Mon, 10 Aug 2026 22:30",
   "source": "EPD aqhi.gov.hk RSS (CORS-locked; ingested hourly by GitHub Actions)",
   "stations": [
     {
       "name": "Central/Western",
       "type": "general",
-      "aqhi": "6",
+      "aqhi": "5",
       "risk": "Moderate"
     },
     {
       "name": "Southern",
       "type": "general",
-      "aqhi": "5",
+      "aqhi": "4",
       "risk": "Moderate"
     },
     {
@@ -39,13 +39,13 @@ const HK_AQHI = {
     {
       "name": "Kwai Chung",
       "type": "general",
-      "aqhi": "6",
+      "aqhi": "5",
       "risk": "Moderate"
     },
     {
       "name": "Tsuen Wan",
       "type": "general",
-      "aqhi": "6",
+      "aqhi": "5",
       "risk": "Moderate"
     },
     {
@@ -69,8 +69,8 @@ const HK_AQHI = {
     {
       "name": "Tung Chung",
       "type": "general",
-      "aqhi": "4",
-      "risk": "Moderate"
+      "aqhi": "3",
+      "risk": "Low"
     },
     {
       "name": "Tai Po",
@@ -81,7 +81,7 @@ const HK_AQHI = {
     {
       "name": "Sha Tin",
       "type": "general",
-      "aqhi": "6",
+      "aqhi": "5",
       "risk": "Moderate"
     },
     {
@@ -99,19 +99,19 @@ const HK_AQHI = {
     {
       "name": "Causeway Bay",
       "type": "roadside",
-      "aqhi": "6",
+      "aqhi": "5",
       "risk": "Moderate"
     },
     {
       "name": "Central",
       "type": "roadside",
-      "aqhi": "6",
+      "aqhi": "5",
       "risk": "Moderate"
     },
     {
       "name": "Mong Kok",
       "type": "roadside",
-      "aqhi": "6",
+      "aqhi": "5",
       "risk": "Moderate"
     }
   ]
