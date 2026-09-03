@@ -5,20 +5,20 @@
  * The page shows bulletinTime and generatedAt separately: staleness is
  * always visible, never hidden. */
 const HK_TCTRACK = {
-  "generatedAt": "2026-09-03T15:10:06+00:00",
+  "generatedAt": "2026-09-03T18:35:43+00:00",
   "source": "HKO tc_list.xml + hko_tctrack_{TCID}.xml on www.weather.gov.hk (no CORS headers; ingested every 30 min by GitHub Actions)",
   "storms": [
     {
       "id": "2634",
       "nameEn": "SAUDEL",
       "nameZh": "沙德爾",
-      "bulletinTime": "2026-09-03T23:00:39+08:00",
+      "bulletinTime": "2026-09-04T00:35:42+08:00",
       "analysis": {
         "lat": 24.4,
-        "lon": 115.3,
-        "time": "2026-09-03T15:00:00+00:00",
-        "intensity": "Tropical Depression",
-        "wind": "45km/h"
+        "lon": 115.2,
+        "time": "2026-09-03T16:00:00+00:00",
+        "intensity": "Low Pressure Area",
+        "wind": "40km/h"
       },
       "past": [
         {
@@ -230,26 +230,7 @@ const HK_TCTRACK = {
           "wind": "45km/h"
         }
       ],
-      "forecast": [
-        {
-          "i": 1,
-          "lat": 24.34,
-          "lon": 115.18
-        },
-        {
-          "i": 2,
-          "lat": 24.26,
-          "lon": 115.02
-        },
-        {
-          "i": 3,
-          "lat": 24.2,
-          "lon": 114.9,
-          "time": "2026-09-03T18:00:00+00:00",
-          "intensity": "Low Pressure Area",
-          "wind": "40km/h"
-        }
-      ]
+      "forecast": []
     },
     {
       "id": "2635",
