@@ -8,6 +8,7 @@
 <script src="vendor/leaflet/leaflet.js"></script>
 <script src="hk_stations.js"></script>
 <script src="hk_aqhi.js"></script>
+<script src="hk_uv.js"></script>
 <style>
 /* ---- South China Sea chart tokens ---- */
 :root{
@@ -241,6 +242,7 @@ const HKTshort=v=>{try{return new Date(v).toLocaleString("en-GB",{timeZone:"Asia
  * time and status. Staleness thresholds are per-source publication cadence. */
 const SOURCES={
   rhrread:{label:"HKO current",ttl:35*60e3},
+  uv:{label:"HKO UV 15-min (via Actions)",ttl:35*60e3},
   warn:{label:"HKO warnings",ttl:15*60e3},
   swt:{label:"HKO special tips",ttl:7*3600e3},
   flw:{label:"HKO local fcst",ttl:4*3600e3},
@@ -352,6 +354,48 @@ function renderTodayLine(){
 }
 
 
+/* ================= UV index =================
+ * rhrread's `uvindex` is HKO's PAST-HOUR mean and only refreshes hourly:
+ * on 14 Sep 2026 the card still read UV 1 at 12:54 HKT — the 11:00-12:00
+ * mean, measured through a thunderstorm — while HKO's published 15-minute
+ * mean had already risen to 5. Both figures were correct; the Atlas was
+ * showing the wrong one, and showing it without its averaging basis.
+ *
+ * Every 15-minute UV file HKO publishes is CORS-locked (checked:
+ * latest_15min_uvindex.csv, uv15min.txt, uv15min_daws.txt, rss.weather.gov.hk
+ * — none sends Access-Control-Allow-Origin), so hk_uv.js is ingested by
+ * Actions every 15 min during the 07:00-18:00 HKT publication window, and
+ * the live rhrread fetch stays on as the fallback for when CI is behind.
+ *
+ * ==== UV selection logic (pure; extracted verbatim by scripts/test_uv.js) ==== */
+const UV_BANDS=[[11,"Extreme"],[8,"Very high"],[6,"High"],[3,"Moderate"],[0,"Low"]];
+function uvBand(v){if(v===""||v==null||!isFinite(Number(v))) return ""; const n=Number(v); return (UV_BANDS.find(b=>n>=b[0])||[0,"Low"])[1];}
+/* An hourly mean reported at 13:02 describes 12:00-13:00, so its information
+ * time is the top of the hour, not the report time. Comparing report times
+ * would let a freshly stamped stale average outrank a genuinely newer
+ * reading. Floored on the epoch: hour boundaries align for HKT (+08:00). */
+function uvInfoTime(reportedIso){const t=Date.parse(reportedIso); return isFinite(t)?t-(t%3600000):NaN;}
+/* Newest information wins — never a fixed preference for one source, so a
+ * lagging ingest degrades to the hourly mean instead of showing old data as
+ * now. Ties go to the finer average. >45 min is flagged stale; >3 h is
+ * treated as not published at all (this is what overnight looks like). */
+function pickUv(file,rhr,nowMs){
+  const has=v=>v!==""&&v!=null&&isFinite(Number(v));
+  const c=[];
+  if(file&&has(file.value)){const t=Date.parse(file.recordTime);
+    if(isFinite(t)) c.push({src:"file",value:Number(file.value),basis:"15-min mean",at:t});}
+  if(rhr&&has(rhr.value)){const t=uvInfoTime(rhr.reportedAt);
+    if(isFinite(t)) c.push({src:"rhrread",value:Number(rhr.value),basis:"hourly mean",at:t});}
+  if(!c.length) return {state:"none",degraded:false};
+  c.sort((a,b)=>(b.at-a.at)||(a.src==="file"?-1:1));
+  const best=c[0], ageMin=Math.round((nowMs-best.at)/6e4);
+  return {state:ageMin>180?"expired":ageMin>45?"stale":"ok",
+    value:best.value,desc:uvBand(best.value),basis:best.basis,at:best.at,ageMin,src:best.src,
+    degraded:best.src==="rhrread"&&!!(file&&has(file.value))};
+}
+/* ==== end UV selection logic ==== */
+const hkHourNow=()=>Number(new Date().toLocaleString("en-GB",{timeZone:"Asia/Hong_Kong",hour:"2-digit",hour12:false}))%24;
+
 /* ================= HKO current (rhrread) ================= */
 async function loadCurrent(){
   try{
@@ -378,7 +422,23 @@ async function loadCurrent(){
     /* Now card */
     const hkoT=(d.temperature?.data||[]).find(r=>r.place==="Hong Kong Observatory");
     const rh=(d.humidity?.data||[])[0];
-    const uv=(d.uvindex&&d.uvindex.data&&d.uvindex.data[0])?d.uvindex.data[0]:null;
+    const rhrUv=(d.uvindex&&d.uvindex.data&&d.uvindex.data[0])?d.uvindex.data[0]:null;
+    const uvFile=(typeof HK_UV!=="undefined"&&HK_UV&&HK_UV.recordTime)?HK_UV:null;
+    const uvPick=pickUv(uvFile,rhrUv?{value:rhrUv.value,reportedAt:d.updateTime}:null,Date.now());
+    /* Freshness chip: outside the publication window there is nothing to be
+     * late for, so no publication time is reported and no stale flag fires. */
+    if(!uvFile){
+      setSrc("uv","down",null,"hk_uv.js missing — showing HKO's hourly mean instead");
+    }else if(hkHourNow()<7||hkHourNow()>=19){
+      setSrc("uv","live",null,`outside publication window (07:00-18:00 HKT) · last ${HKT(uvFile.recordTime)}`);
+    }else{
+      setSrc("uv","live",uvFile.recordTime,`15-min mean ${uvFile.value} at ${HKTshort(uvFile.recordTime)}`);
+    }
+    const uvTxt=(uvPick.state==="none")
+      ? `UV <b>—</b> <small>not published (07:00–18:00 HKT only)</small>`
+      : (uvPick.state==="expired")
+      ? `UV <b>—</b> <small>nothing published since ${HKTshort(uvPick.at)} HKT</small>`
+      : `UV <b>${esc(String(uvPick.value))}</b> (${esc(uvPick.desc.toLowerCase())}) <small class="mutedTxt" title="${esc(uvPick.basis)} at King's Park, ${uvPick.ageMin} min old">· ${esc(uvPick.basis)} to ${HKTshort(uvPick.at)} HKT${uvPick.state==="stale"?" · stale":""}</small>`;
     const [nowEm,nowLbl]=iconOf(Array.isArray(d.icon)?d.icon[0]:d.icon);
     $("#nowCard").innerHTML=`<h3>Now <span class="provTag prov-obs">Observed · HKO</span></h3>
       <div style="display:flex;align-items:center;gap:.7rem">
@@ -388,11 +448,12 @@ async function loadCurrent(){
       </div>
       <div class="kv">
         ${rh?`<span>Humidity <b>${rh.value}%</b></span>`:""}
-        <span>UV ${uv&&uv.value!==""&&uv.value!=null?`<b>${esc(String(uv.value))}</b>${uv.desc?" ("+esc(uv.desc)+")":""}`:`<b>—</b> <small>not published overnight</small>`}</span>
+        <span>${uvTxt}</span>
         ${d.rainfallFrom00To12!=null&&d.rainfallFrom00To12!==""?`<span>Rain since 00:00 <b>${esc(String(d.rainfallFrom00To12))} mm</b></span>`:""}
       </div>
       <div class="fcstText" id="todayFcst" style="margin-top:.45rem"></div>
       ${d.tcmessage?`<div class="mutedTxt" style="margin-top:.4rem"><b>TC message:</b> ${esc(Array.isArray(d.tcmessage)?d.tcmessage.join(" "):d.tcmessage)}</div>`:""}
+      ${uvPick.degraded?`<div class="mutedTxt" style="margin-top:.4rem">UV shown is HKO's hourly mean — the 15-minute ingest is behind (its last record is ${HKT(uvFile.recordTime)} HKT).</div>`:""}
       <div class="mutedTxt" style="margin-top:.4rem">At HKO headquarters · updated ${HKT(d.updateTime)} HKT${matched?` · ${matched} stations plotted`:""}</div>
       ${unmatched.length?`<div class="mutedTxt">Not plotted (no registry position yet): ${esc(unmatched.join(", "))}</div>`:""}`;
     renderTodayLine();

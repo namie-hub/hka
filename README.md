@@ -28,13 +28,16 @@ what verifies afterwards** — a hindsight scoring view is the roadmap's end sta
 | `hk_pressure.js` | Sea-level-pressure engine (ported from the Japan Atlas): model fetch, marching-squares isobars, L/H centres, experimental "L?" forming-low detection. |
 | `hk_tctrack.js` | GENERATED every 30 min by Actions — HKO's own TC forecast track (past + analysis + hourly-interpolated forecast). HKO publishes the XML with no CORS headers on any host, so this is the only static-compatible route. |
 | `hk_aqhi.js` | GENERATED hourly by Actions — EPD AQHI per station. EPD's feed is CORS-locked, so this is the only static-compatible route. |
+| `hk_uv.js` | GENERATED every 15 min by Actions, 07:00-18:00 HKT — HKO's 15-minute mean UV index. Every UV file HKO publishes is CORS-locked, so this is the only static-compatible route to the figure HKO's own UV page shows. `rhrread`'s hourly mean stays on as the live fallback. |
 | `vendor/leaflet/` | Leaflet 1.9.4 bundled locally: one less third party, and a CDN outage can no longer take down the whole page. |
 | `scripts/ingest_aqhi.py` | AQHI ingest; fails loudly if the EPD format changes. |
+| `scripts/ingest_uv.py` | 15-minute UV ingest; no-ops outside the publication window, fails loudly on format change. |
 | `scripts/ingest_tctrack.py` | HKO TC-track ingest; fails loudly (and writes nothing) on any fetch/parse failure, so the old file's ageing `generatedAt` makes the outage visible. |
+| `scripts/test_uv.js` | Tests the Now card's UV source-selection logic, extracted verbatim from `index.html`. Plain node, no dependencies. |
+| `scripts/test_ingest_uv.py` | Parser contract tests for the UV ingest, against verbatim HKO fixtures. |
 | `scripts/check_feeds.js` | Feed health check with retries and payload-shape validation. |
 | `.github/workflows/feed-check.yml` | Runs the health check daily at 06:45 HKT; a failure email is the alert. |
-| `.github/workflows/update-aqhi.yml` | Hourly AQHI ingest at :42, commit-only-on-change (generatedAt excluded from the diff). |
-| `.github/workflows/update-tctrack.yml` | TC-track ingest at :07/:37, same commit-only-on-change rule — no TC means no commits. |
+| `.github/workflows/atlas-ingest.yml` | All Actions-side ingests in one serialized job (TC track, AQHI, UV), replacing the two separate workflows that raced each other on push. Runs at :12/:42, plus :27/:57 during the UV publication window. Commit-only-on-change (generatedAt excluded from the diff): a quiet feed produces no commits. |
 
 All files must sit in the same folder. Double-click `index.html` — that's the whole
 install.
@@ -50,6 +53,7 @@ The Atlas contacts **only data endpoints** and nothing else:
 - `tile.openstreetmap.org` — basemap tiles
 - `www.hko.gov.hk` — official HKO radar and TPFM probability imagery (plain images, shown as published)
 - `www.aqhi.gov.hk` — contacted only by GitHub Actions, never by your browser
+- `www.hko.gov.hk/wxinfo/uvinfo/` — UV day curve; contacted only by GitHub Actions, never by your browser
 - `www.weather.gov.hk` — HKO TC track XML; contacted only by GitHub Actions, never by your browser (no CORS headers)
 
 No analytics, no cookies, no fingerprinting, no font CDN (system fonts are a privacy
@@ -107,6 +111,12 @@ third parties, vendor Leaflet locally and self-host tiles — both are drop-in c
   be a false alarm. They never use warning colours and never imply official status.
 - **AQHI arrives via hourly Actions ingest** because EPD's feed blocks browser CORS;
   the EPD record time is displayed, and a stale copy is flagged as stale.
+- **UV is up to ~15 minutes behind**, and is labelled with the exact record time and
+  averaging basis for that reason. HKO's 15-minute mean is CORS-locked on every host
+  it is published from, so the page cannot read it live; Actions ingests it four times
+  an hour during the 07:00-18:00 HKT publication window. If that ingest falls behind,
+  the card degrades to `rhrread`'s hourly mean and says which one it is showing —
+  it never presents an hourly average as the current reading.
 - JMA's bosai endpoints are the feeds behind JMA's own site, not a documented API;
   paths can change without notice. The daily health check exists for exactly this.
 - The "What changed" briefing compares against *your previous visit on this device* —
