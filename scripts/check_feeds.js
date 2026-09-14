@@ -69,6 +69,15 @@ const FEEDS = [
     // no forecast track issued
   },
   {
+    id: "hko-uv-15min",
+    url: "https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_15min_uvindex.csv",
+    raw: true, // CSV; no CORS headers on any HKO UV file — that's why ingest_uv.py exists
+    validate: t => typeof t === "string" && t.includes("UV Index") &&
+      /^\d{12},/m.test(t.split("\n").slice(1).join("\n"))
+    // a blank value is valid (sensor gap, or outside 07:00-18:00 HKT); a
+    // missing or non-numeric TIMESTAMP is not — that is a format change
+  },
+  {
     id: "rainviewer-maps",
     url: "https://api.rainviewer.com/public/weather-maps.json",
     validate: d => Array.isArray(d?.radar?.past) && d.radar.past.length > 0
