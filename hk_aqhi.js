@@ -2,8 +2,8 @@
  * EPD publishes AQHI hourly; this file is refreshed hourly by Actions.
  * The page shows recordTime so any staleness is visible, never hidden. */
 const HK_AQHI = {
-  "generatedAt": "2026-09-19T06:33:49+00:00",
-  "recordTime": "Sat, 19 Sep 2026 14:30",
+  "generatedAt": "2026-09-19T11:16:10+00:00",
+  "recordTime": "Sat, 19 Sep 2026 18:30",
   "source": "EPD aqhi.gov.hk RSS (CORS-locked; ingested hourly by GitHub Actions)",
   "stations": [
     {
@@ -27,7 +27,7 @@ const HK_AQHI = {
     {
       "name": "Kwun Tong",
       "type": "general",
-      "aqhi": "5",
+      "aqhi": "6",
       "risk": "Moderate"
     },
     {
@@ -57,25 +57,25 @@ const HK_AQHI = {
     {
       "name": "Yuen Long",
       "type": "general",
-      "aqhi": "5",
+      "aqhi": "6",
       "risk": "Moderate"
     },
     {
       "name": "Tuen Mun",
       "type": "general",
-      "aqhi": "6",
-      "risk": "Moderate"
+      "aqhi": "7",
+      "risk": "High"
     },
     {
       "name": "Tung Chung",
       "type": "general",
-      "aqhi": "4",
+      "aqhi": "5",
       "risk": "Moderate"
     },
     {
       "name": "Tai Po",
       "type": "general",
-      "aqhi": "5",
+      "aqhi": "6",
       "risk": "Moderate"
     },
     {
@@ -87,7 +87,7 @@ const HK_AQHI = {
     {
       "name": "North",
       "type": "general",
-      "aqhi": "5",
+      "aqhi": "6",
       "risk": "Moderate"
     },
     {
