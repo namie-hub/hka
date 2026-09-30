@@ -5,18 +5,18 @@
  * The page shows bulletinTime and generatedAt separately: staleness is
  * always visible, never hidden. */
 const HK_TCTRACK = {
-  "generatedAt": "2026-09-30T08:24:57+00:00",
+  "generatedAt": "2026-09-30T15:15:02+00:00",
   "source": "HKO tc_list.xml + hko_tctrack_{TCID}.xml on www.weather.gov.hk (no CORS headers; ingested every 30 min by GitHub Actions)",
   "storms": [
     {
       "id": "2641",
       "nameEn": "SURIGAE",
       "nameZh": "舒力基",
-      "bulletinTime": "2026-09-30T16:08:08+08:00",
+      "bulletinTime": "2026-09-30T22:00:48+08:00",
       "analysis": {
-        "lat": 31.3,
-        "lon": 138.4,
-        "time": "2026-09-30T06:00:00+00:00",
+        "lat": 31.8,
+        "lon": 138.9,
+        "time": "2026-09-30T12:00:00+00:00",
         "intensity": "Tropical Storm",
         "wind": "65km/h"
       },
@@ -260,129 +260,137 @@ const HK_TCTRACK = {
           "time": "2026-09-30T00:00:00+00:00",
           "intensity": "Tropical Storm",
           "wind": "65km/h"
+        },
+        {
+          "i": 31,
+          "lat": 31.3,
+          "lon": 138.4,
+          "time": "2026-09-30T06:00:00+00:00",
+          "intensity": "Tropical Storm",
+          "wind": "65km/h"
         }
       ],
       "forecast": [
         {
           "i": 1,
-          "lat": 31.36,
-          "lon": 138.45
+          "lat": 31.89,
+          "lon": 138.98
         },
         {
           "i": 2,
-          "lat": 31.43,
-          "lon": 138.5
-        },
-        {
-          "i": 3,
-          "lat": 31.51,
-          "lon": 138.56
-        },
-        {
-          "i": 4,
-          "lat": 31.61,
-          "lon": 138.62
-        },
-        {
-          "i": 5,
-          "lat": 31.71,
-          "lon": 138.69
-        },
-        {
-          "i": 6,
-          "lat": 31.82,
-          "lon": 138.78
-        },
-        {
-          "i": 7,
-          "lat": 31.94,
-          "lon": 138.87
-        },
-        {
-          "i": 8,
-          "lat": 32.06,
-          "lon": 138.97
-        },
-        {
-          "i": 9,
-          "lat": 32.19,
+          "lat": 31.99,
           "lon": 139.08
         },
         {
+          "i": 3,
+          "lat": 32.11,
+          "lon": 139.2
+        },
+        {
+          "i": 4,
+          "lat": 32.25,
+          "lon": 139.32
+        },
+        {
+          "i": 5,
+          "lat": 32.4,
+          "lon": 139.46
+        },
+        {
+          "i": 6,
+          "lat": 32.56,
+          "lon": 139.61
+        },
+        {
+          "i": 7,
+          "lat": 32.73,
+          "lon": 139.77
+        },
+        {
+          "i": 8,
+          "lat": 32.9,
+          "lon": 139.94
+        },
+        {
+          "i": 9,
+          "lat": 33.08,
+          "lon": 140.12
+        },
+        {
           "i": 10,
-          "lat": 32.32,
-          "lon": 139.21
+          "lat": 33.26,
+          "lon": 140.31
         },
         {
           "i": 11,
-          "lat": 32.46,
-          "lon": 139.35
+          "lat": 33.43,
+          "lon": 140.5
         },
         {
           "i": 12,
-          "lat": 32.6,
-          "lon": 139.5
+          "lat": 33.6,
+          "lon": 140.7
         },
         {
           "i": 13,
-          "lat": 32.75,
-          "lon": 139.68
+          "lat": 33.78,
+          "lon": 140.92
         },
         {
           "i": 14,
-          "lat": 32.93,
-          "lon": 139.9
+          "lat": 33.97,
+          "lon": 141.17
         },
         {
           "i": 15,
-          "lat": 33.12,
-          "lon": 140.15
+          "lat": 34.17,
+          "lon": 141.44
         },
         {
           "i": 16,
-          "lat": 33.32,
-          "lon": 140.41
+          "lat": 34.39,
+          "lon": 141.72
         },
         {
           "i": 17,
-          "lat": 33.52,
-          "lon": 140.69
+          "lat": 34.6,
+          "lon": 142.02
         },
         {
           "i": 18,
-          "lat": 33.73,
-          "lon": 140.97
+          "lat": 34.81,
+          "lon": 142.31
         },
         {
           "i": 19,
-          "lat": 33.93,
-          "lon": 141.25
+          "lat": 35.02,
+          "lon": 142.6
         },
         {
           "i": 20,
-          "lat": 34.13,
-          "lon": 141.51
+          "lat": 35.21,
+          "lon": 142.88
         },
         {
           "i": 21,
-          "lat": 34.3,
-          "lon": 141.76
+          "lat": 35.4,
+          "lon": 143.13
         },
         {
           "i": 22,
-          "lat": 34.46,
-          "lon": 141.98
+          "lat": 35.56,
+          "lon": 143.36
         },
         {
           "i": 23,
-          "lat": 34.6,
-          "lon": 142.16
+          "lat": 35.69,
+          "lon": 143.55
         },
         {
           "i": 24,
-          "lat": 34.7,
-          "lon": 142.3,
-          "time": "2026-10-01T06:00:00+00:00",
+          "lat": 35.8,
+          "lon": 143.7,
+          "time": "2026-10-01T12:00:00+00:00",
           "intensity": "Extratropical Low",
           "wind": "--"
         }
