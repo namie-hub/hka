@@ -2,8 +2,8 @@
  * EPD publishes AQHI hourly; this file is refreshed hourly by Actions.
  * The page shows recordTime so any staleness is visible, never hidden. */
 const HK_AQHI = {
-  "generatedAt": "2026-10-14T20:42:04+00:00",
-  "recordTime": "Thu, 15 Oct 2026 04:30",
+  "generatedAt": "2026-10-14T23:24:51+00:00",
+  "recordTime": "Thu, 15 Oct 2026 06:30",
   "source": "EPD aqhi.gov.hk RSS (CORS-locked; ingested hourly by GitHub Actions)",
   "stations": [
     {
@@ -15,13 +15,13 @@ const HK_AQHI = {
     {
       "name": "Southern",
       "type": "general",
-      "aqhi": "6",
+      "aqhi": "5",
       "risk": "Moderate"
     },
     {
       "name": "Eastern",
       "type": "general",
-      "aqhi": "6",
+      "aqhi": "5",
       "risk": "Moderate"
     },
     {
