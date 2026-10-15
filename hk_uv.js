@@ -4,10 +4,10 @@
  * Actions ingests it. The page shows the record time and the averaging
  * basis, and falls back to rhrread's hourly mean if this copy ages out. */
 const HK_UV = {
-  "generatedAt": "2026-10-15T01:36:42+00:00",
-  "recordTime": "2026-10-15T09:30:00+08:00",
-  "value": 2,
-  "desc": "Low",
+  "generatedAt": "2026-10-15T01:47:28+00:00",
+  "recordTime": "2026-10-15T09:45:00+08:00",
+  "value": 3,
+  "desc": "Moderate",
   "station": "King's Park",
   "basis": "15-minute mean",
   "source": "HKO open data latest_15min_uvindex.csv (CORS-locked; ingested every 15 min by GitHub Actions, 07:00-18:00 HKT)",
