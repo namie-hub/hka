@@ -2,15 +2,15 @@
  * EPD publishes AQHI hourly; this file is refreshed hourly by Actions.
  * The page shows recordTime so any staleness is visible, never hidden. */
 const HK_AQHI = {
-  "generatedAt": "2026-10-17T12:54:51+00:00",
-  "recordTime": "Sat, 17 Oct 2026 20:30",
+  "generatedAt": "2026-10-17T16:20:13+00:00",
+  "recordTime": "Sat, 17 Oct 2026 23:30",
   "source": "EPD aqhi.gov.hk RSS (CORS-locked; ingested hourly by GitHub Actions)",
   "stations": [
     {
       "name": "Central/Western",
       "type": "general",
-      "aqhi": "4",
-      "risk": "Moderate"
+      "aqhi": "3",
+      "risk": "Low"
     },
     {
       "name": "Southern",
@@ -39,14 +39,14 @@ const HK_AQHI = {
     {
       "name": "Kwai Chung",
       "type": "general",
-      "aqhi": "4",
-      "risk": "Moderate"
+      "aqhi": "3",
+      "risk": "Low"
     },
     {
       "name": "Tsuen Wan",
       "type": "general",
-      "aqhi": "4",
-      "risk": "Moderate"
+      "aqhi": "3",
+      "risk": "Low"
     },
     {
       "name": "Tseung Kwan O",
@@ -63,8 +63,8 @@ const HK_AQHI = {
     {
       "name": "Tuen Mun",
       "type": "general",
-      "aqhi": "4",
-      "risk": "Moderate"
+      "aqhi": "3",
+      "risk": "Low"
     },
     {
       "name": "Tung Chung",
@@ -75,26 +75,26 @@ const HK_AQHI = {
     {
       "name": "Tai Po",
       "type": "general",
-      "aqhi": "4",
-      "risk": "Moderate"
+      "aqhi": "3",
+      "risk": "Low"
     },
     {
       "name": "Sha Tin",
       "type": "general",
-      "aqhi": "4",
-      "risk": "Moderate"
+      "aqhi": "3",
+      "risk": "Low"
     },
     {
       "name": "North",
       "type": "general",
-      "aqhi": "4",
-      "risk": "Moderate"
+      "aqhi": "3",
+      "risk": "Low"
     },
     {
       "name": "Tap Mun",
       "type": "general",
-      "aqhi": "4",
-      "risk": "Moderate"
+      "aqhi": "3",
+      "risk": "Low"
     },
     {
       "name": "Causeway Bay",
@@ -105,8 +105,8 @@ const HK_AQHI = {
     {
       "name": "Central",
       "type": "roadside",
-      "aqhi": "4",
-      "risk": "Moderate"
+      "aqhi": "3",
+      "risk": "Low"
     },
     {
       "name": "Mong Kok",
