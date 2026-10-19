@@ -2,20 +2,20 @@
  * EPD publishes AQHI hourly; this file is refreshed hourly by Actions.
  * The page shows recordTime so any staleness is visible, never hidden. */
 const HK_AQHI = {
-  "generatedAt": "2026-10-19T11:12:47+00:00",
-  "recordTime": "Mon, 19 Oct 2026 18:30",
+  "generatedAt": "2026-10-19T14:10:05+00:00",
+  "recordTime": "Mon, 19 Oct 2026 21:30",
   "source": "EPD aqhi.gov.hk RSS (CORS-locked; ingested hourly by GitHub Actions)",
   "stations": [
     {
       "name": "Central/Western",
       "type": "general",
-      "aqhi": "5",
+      "aqhi": "4",
       "risk": "Moderate"
     },
     {
       "name": "Southern",
       "type": "general",
-      "aqhi": "5",
+      "aqhi": "4",
       "risk": "Moderate"
     },
     {
@@ -27,7 +27,7 @@ const HK_AQHI = {
     {
       "name": "Kwun Tong",
       "type": "general",
-      "aqhi": "5",
+      "aqhi": "4",
       "risk": "Moderate"
     },
     {
@@ -45,26 +45,26 @@ const HK_AQHI = {
     {
       "name": "Tsuen Wan",
       "type": "general",
-      "aqhi": "5",
+      "aqhi": "4",
       "risk": "Moderate"
     },
     {
       "name": "Tseung Kwan O",
       "type": "general",
-      "aqhi": "5",
+      "aqhi": "4",
       "risk": "Moderate"
     },
     {
       "name": "Yuen Long",
       "type": "general",
-      "aqhi": "5",
+      "aqhi": "4",
       "risk": "Moderate"
     },
     {
       "name": "Tuen Mun",
       "type": "general",
-      "aqhi": "5",
-      "risk": "Moderate"
+      "aqhi": "3",
+      "risk": "Low"
     },
     {
       "name": "Tung Chung",
@@ -81,7 +81,7 @@ const HK_AQHI = {
     {
       "name": "Sha Tin",
       "type": "general",
-      "aqhi": "5",
+      "aqhi": "4",
       "risk": "Moderate"
     },
     {
@@ -105,13 +105,13 @@ const HK_AQHI = {
     {
       "name": "Central",
       "type": "roadside",
-      "aqhi": "5",
+      "aqhi": "4",
       "risk": "Moderate"
     },
     {
       "name": "Mong Kok",
       "type": "roadside",
-      "aqhi": "5",
+      "aqhi": "4",
       "risk": "Moderate"
     }
   ]
