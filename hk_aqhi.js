@@ -2,8 +2,8 @@
  * EPD publishes AQHI hourly; this file is refreshed hourly by Actions.
  * The page shows recordTime so any staleness is visible, never hidden. */
 const HK_AQHI = {
-  "generatedAt": "2026-10-24T20:41:43+00:00",
-  "recordTime": "Sun, 25 Oct 2026 04:30",
+  "generatedAt": "2026-10-24T22:43:40+00:00",
+  "recordTime": "Sun, 25 Oct 2026 06:30",
   "source": "EPD aqhi.gov.hk RSS (CORS-locked; ingested hourly by GitHub Actions)",
   "stations": [
     {
