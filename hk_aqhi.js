@@ -2,21 +2,21 @@
  * EPD publishes AQHI hourly; this file is refreshed hourly by Actions.
  * The page shows recordTime so any staleness is visible, never hidden. */
 const HK_AQHI = {
-  "generatedAt": "2026-11-05T11:42:56+00:00",
-  "recordTime": "Thu, 05 Nov 2026 19:30",
+  "generatedAt": "2026-11-05T16:46:36+00:00",
+  "recordTime": "Fri, 06 Nov 2026 00:30",
   "source": "EPD aqhi.gov.hk RSS (CORS-locked; ingested hourly by GitHub Actions)",
   "stations": [
     {
       "name": "Central/Western",
       "type": "general",
-      "aqhi": "4",
-      "risk": "Moderate"
+      "aqhi": "3",
+      "risk": "Low"
     },
     {
       "name": "Southern",
       "type": "general",
-      "aqhi": "4",
-      "risk": "Moderate"
+      "aqhi": "3",
+      "risk": "Low"
     },
     {
       "name": "Eastern",
@@ -27,86 +27,86 @@ const HK_AQHI = {
     {
       "name": "Kwun Tong",
       "type": "general",
-      "aqhi": "4",
-      "risk": "Moderate"
+      "aqhi": "3",
+      "risk": "Low"
     },
     {
       "name": "Sham Shui Po",
-      "type": "general",
-      "aqhi": "4",
-      "risk": "Moderate"
-    },
-    {
-      "name": "Kwai Chung",
-      "type": "general",
-      "aqhi": "4",
-      "risk": "Moderate"
-    },
-    {
-      "name": "Tsuen Wan",
-      "type": "general",
-      "aqhi": "4",
-      "risk": "Moderate"
-    },
-    {
-      "name": "Tseung Kwan O",
-      "type": "general",
-      "aqhi": "4",
-      "risk": "Moderate"
-    },
-    {
-      "name": "Yuen Long",
-      "type": "general",
-      "aqhi": "4",
-      "risk": "Moderate"
-    },
-    {
-      "name": "Tuen Mun",
-      "type": "general",
-      "aqhi": "4",
-      "risk": "Moderate"
-    },
-    {
-      "name": "Tung Chung",
       "type": "general",
       "aqhi": "3",
       "risk": "Low"
     },
     {
+      "name": "Kwai Chung",
+      "type": "general",
+      "aqhi": "3",
+      "risk": "Low"
+    },
+    {
+      "name": "Tsuen Wan",
+      "type": "general",
+      "aqhi": "3",
+      "risk": "Low"
+    },
+    {
+      "name": "Tseung Kwan O",
+      "type": "general",
+      "aqhi": "3",
+      "risk": "Low"
+    },
+    {
+      "name": "Yuen Long",
+      "type": "general",
+      "aqhi": "3",
+      "risk": "Low"
+    },
+    {
+      "name": "Tuen Mun",
+      "type": "general",
+      "aqhi": "3",
+      "risk": "Low"
+    },
+    {
+      "name": "Tung Chung",
+      "type": "general",
+      "aqhi": "2",
+      "risk": "Low"
+    },
+    {
       "name": "Tai Po",
       "type": "general",
-      "aqhi": "4",
-      "risk": "Moderate"
+      "aqhi": "3",
+      "risk": "Low"
     },
     {
       "name": "Sha Tin",
       "type": "general",
-      "aqhi": "4",
-      "risk": "Moderate"
+      "aqhi": "3",
+      "risk": "Low"
     },
     {
       "name": "North",
       "type": "general",
-      "aqhi": "4",
-      "risk": "Moderate"
+      "aqhi": "3",
+      "risk": "Low"
     },
     {
       "name": "Tap Mun",
       "type": "general",
-      "aqhi": "4",
-      "risk": "Moderate"
+      "aqhi": "2",
+      "risk": "Low"
     },
     {
       "name": "Causeway Bay",
       "type": "roadside",
-      "aqhi": "4",
-      "risk": "Moderate"
+      "aqhi": "3",
+      "risk": "Low"
     },
     {
       "name": "Central",
       "type": "roadside",
-      "aqhi": "4",
-      "risk": "Moderate"
+      "aqhi": "3",
+      "risk": "Low"
     },
     {
       "name": "Mong Kok",
