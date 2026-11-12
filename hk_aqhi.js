@@ -2,50 +2,50 @@
  * EPD publishes AQHI hourly; this file is refreshed hourly by Actions.
  * The page shows recordTime so any staleness is visible, never hidden. */
 const HK_AQHI = {
-  "generatedAt": "2026-11-12T03:57:35+00:00",
-  "recordTime": "Thu, 12 Nov 2026 11:30",
+  "generatedAt": "2026-11-12T08:12:35+00:00",
+  "recordTime": "Thu, 12 Nov 2026 15:30",
   "source": "EPD aqhi.gov.hk RSS (CORS-locked; ingested hourly by GitHub Actions)",
   "stations": [
     {
       "name": "Central/Western",
       "type": "general",
-      "aqhi": "4",
+      "aqhi": "5",
       "risk": "Moderate"
     },
     {
       "name": "Southern",
       "type": "general",
-      "aqhi": "4",
+      "aqhi": "5",
       "risk": "Moderate"
     },
     {
       "name": "Eastern",
       "type": "general",
-      "aqhi": "4",
+      "aqhi": "5",
       "risk": "Moderate"
     },
     {
       "name": "Kwun Tong",
       "type": "general",
-      "aqhi": "4",
+      "aqhi": "5",
       "risk": "Moderate"
     },
     {
       "name": "Sham Shui Po",
       "type": "general",
-      "aqhi": "4",
+      "aqhi": "5",
       "risk": "Moderate"
     },
     {
       "name": "Kwai Chung",
       "type": "general",
-      "aqhi": "4",
+      "aqhi": "5",
       "risk": "Moderate"
     },
     {
       "name": "Tsuen Wan",
       "type": "general",
-      "aqhi": "4",
+      "aqhi": "5",
       "risk": "Moderate"
     },
     {
@@ -57,37 +57,37 @@ const HK_AQHI = {
     {
       "name": "Yuen Long",
       "type": "general",
-      "aqhi": "4",
+      "aqhi": "5",
       "risk": "Moderate"
     },
     {
       "name": "Tuen Mun",
       "type": "general",
-      "aqhi": "4",
+      "aqhi": "6",
       "risk": "Moderate"
     },
     {
       "name": "Tung Chung",
       "type": "general",
-      "aqhi": "3",
-      "risk": "Low"
+      "aqhi": "5",
+      "risk": "Moderate"
     },
     {
       "name": "Tai Po",
       "type": "general",
-      "aqhi": "4",
+      "aqhi": "5",
       "risk": "Moderate"
     },
     {
       "name": "Sha Tin",
       "type": "general",
-      "aqhi": "4",
+      "aqhi": "5",
       "risk": "Moderate"
     },
     {
       "name": "North",
       "type": "general",
-      "aqhi": "4",
+      "aqhi": "5",
       "risk": "Moderate"
     },
     {
@@ -105,13 +105,13 @@ const HK_AQHI = {
     {
       "name": "Central",
       "type": "roadside",
-      "aqhi": "4",
+      "aqhi": "5",
       "risk": "Moderate"
     },
     {
       "name": "Mong Kok",
       "type": "roadside",
-      "aqhi": "4",
+      "aqhi": "5",
       "risk": "Moderate"
     }
   ]
