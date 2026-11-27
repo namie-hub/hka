@@ -105,21 +105,70 @@ async function fetchWithRetry(url, tries = 3, raw = false) {
   throw lastErr;
 }
 
-(async () => {
-  let failures = 0;
-  for (const feed of FEEDS) {
-    try {
-      const data = await fetchWithRetry(feed.url, 3, feed.raw === true);
-      if (!feed.validate(data)) throw new Error("payload shape changed — Atlas parser may break");
-      console.log(`OK    ${feed.id}`);
-    } catch (e) {
-      failures++;
-      console.error(`FAIL  ${feed.id}: ${e.message}`);
+async function checkFeed(feed) {
+  try {
+    const data = await fetchWithRetry(feed.url, 3, feed.raw === true);
+    if (!feed.validate(data)) throw new Error("payload shape changed — Atlas parser may break");
+    return null;
+  } catch (e) {
+    // AbortSignal.timeout rejects with a TimeoutError whose message is vague.
+    return e && e.name === "TimeoutError" ? "timed out after 20 s (x3)" : String(e && e.message || e);
+  }
+}
+
+async function runPass(feeds, label) {
+  const failed = [];
+  for (const feed of feeds) {
+    const err = await checkFeed(feed);
+    if (err) {
+      failed.push({ feed, err });
+      console.log(`FAIL  ${feed.id}: ${err}${label}`);
+    } else {
+      console.log(`OK    ${feed.id}${label}`);
     }
   }
-  if (failures) {
-    console.error(`\n${failures} feed(s) failing. Bring this log to a debugging session.`);
+  return failed;
+}
+
+function writeSummary(lines) {
+  const p = process.env.GITHUB_STEP_SUMMARY;
+  if (!p) return;
+  try { require("fs").appendFileSync(p, lines.join("\n") + "\n"); } catch (_) { /* summary is best-effort */ }
+}
+
+(async () => {
+  // Pass 1, then re-check only the failures once after RECHECK_DELAY_S
+  // (default 120 s). A feed fails the run only if it fails both passes —
+  // a one-off upstream blip (e.g. an Open-Meteo connection timeout) is
+  // logged as a warning, not emailed as a failure.
+  const delayS = Math.max(0, Number(process.env.RECHECK_DELAY_S ?? 120) || 0);
+  const first = await runPass(FEEDS, "");
+  let still = first;
+  if (first.length) {
+    console.log(`\n${first.length} feed(s) failed pass 1; re-checking in ${delayS}s…`);
+    await new Promise(res => setTimeout(res, delayS * 1000));
+    still = await runPass(first.map(f => f.feed), "  (recheck)");
+  }
+  const recovered = first.filter(f => !still.some(s => s.feed.id === f.feed.id));
+
+  for (const r of recovered) {
+    console.log(`::warning title=Feed recovered on recheck::${r.feed.id}: ${r.err}`);
+  }
+  for (const s of still) {
+    console.log(`::error title=Feed failing::${s.feed.id}: ${s.err}`);
+  }
+
+  const summary = ["## Feed health check", "", "| Feed | Result |", "|---|---|"];
+  for (const feed of FEEDS) {
+    const s = still.find(x => x.feed.id === feed.id);
+    const r = recovered.find(x => x.feed.id === feed.id);
+    summary.push(`| ${feed.id} | ${s ? "❌ " + s.err : r ? "⚠️ recovered on recheck (" + r.err + ")" : "✅ OK"} |`);
+  }
+  writeSummary(summary);
+
+  if (still.length) {
+    console.error(`\n${still.length} feed(s) failing on both passes: ${still.map(s => s.feed.id).join(", ")}`);
     process.exit(1);
   }
-  console.log("\nAll feeds healthy.");
+  console.log(recovered.length ? `\nAll feeds healthy after recheck (${recovered.length} transient).` : "\nAll feeds healthy.");
 })();
